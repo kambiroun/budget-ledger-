@@ -1,18 +1,26 @@
-# Hotfix — budgets crash on add
+# Hotfix — Dashboard → Ledger drill-in
 
-**Symptom:** `TypeError: Cannot read properties of undefined (reading 'startsWith')`
-when setting a budget amount on a category.
+**Symptom:** clicking a category on the Dashboard Budget tab did nothing.
 
-**Root cause:** `budgetMapForMonth` in `lib/budget/adapter.ts` filters
-budgets by `b.month.startsWith(mk)`, but the schema has no `month` column
-on `budgets` — rows are one-per-(user, category). With zero budgets, the
-forEach was a no-op so it silently worked. Add one and it crashes.
+**Root cause:** `DashBudgetTab` rendered the rows but no click handler was
+wired, so there was no way to drill into a category's transactions from the
+Dashboard.
 
 **Fix:**
-- `lib/budget/adapter.ts` — drop the hard `month` filter. Budgets apply
-  to every month until per-month budgets ship. Still honors a `month`
-  field defensively if one shows up.
-- `lib/db/client.ts` — no longer stamps an optimistic `month` on new
-  budget rows (the server doesn't set one either).
 
-**Apply:** overwrite the two files. No migration. No env changes. Reload.
+1. **`components/budget/BudgetShell.tsx`** — adds a new global listener
+   `window.addEventListener("budget:cmd", ...)`. Any component in the tree can
+   now dispatch a `CmdAction` via a `CustomEvent` and the shell routes it
+   through the same handler the Command Palette already uses. Decouples
+   child components from the shell's state.
+
+2. **`components/budget/DashBudgetTab.tsx`** — each category row becomes a
+   `role="button"` with `onClick` + `Enter/Space` keyboard activation. It
+   dispatches `{ kind: "filter-category", categoryName: c }`, which the
+   shell turns into: switch to Ledger tab + apply the category filter.
+
+**Apply:** overwrite both files. No schema, no env changes. Reload.
+
+**Future use:** the new `budget:cmd` bus lets you wire drill-in from
+anywhere — compare-period rows, weekly digest, heatmap day-cells, etc.
+Just dispatch a matching `CmdAction`.

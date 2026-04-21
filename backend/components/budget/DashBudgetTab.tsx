@@ -19,6 +19,14 @@ export function DashBudgetTab({
   const colorFor = (name: string) =>
     categories.find((c) => c.name === name)?.color ?? "var(--ink-muted)";
 
+  // Drill-in: clicking a row jumps to the Ledger filtered to that category.
+  // BudgetShell listens for `budget:cmd` and routes the action.
+  const openCategory = (name: string) => {
+    window.dispatchEvent(new CustomEvent("budget:cmd", {
+      detail: { kind: "filter-category", categoryName: name },
+    }));
+  };
+
   return (
     <div>
       {names.map((c) => {
@@ -34,7 +42,17 @@ export function DashBudgetTab({
 
         return (
           <div key={c}>
-            <div className="cat-row">
+            <div
+              className="cat-row"
+              role="button"
+              tabIndex={0}
+              onClick={() => openCategory(c)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openCategory(c); }
+              }}
+              title={`Open ${c} in the Ledger`}
+              style={{ cursor: "pointer" }}
+            >
               <div className="cat-row-top">
                 <span className="cat-swatch" style={{ background: colorFor(c) }} />
                 <span className="cat-name">{c}</span>

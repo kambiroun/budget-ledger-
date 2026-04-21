@@ -70,6 +70,21 @@ export function BudgetShell({ userEmail }: { userEmail: string }) {
     return () => window.removeEventListener("budget:open-receipt", handler as EventListener);
   }, []);
 
+  // Global entry point for command actions. Any component in the tree can
+  // dispatch a CmdAction and have the shell route it (nav, filter, open drawer,
+  // AI parse, etc.). Keeps child components decoupled from the shell's state.
+  useEffect(() => {
+    const onCmd = (e: Event) => {
+      const action = (e as CustomEvent<CmdAction>).detail;
+      if (action) handleCmd(action);
+    };
+    window.addEventListener("budget:cmd", onCmd as EventListener);
+    return () => window.removeEventListener("budget:cmd", onCmd as EventListener);
+    // handleCmd is recreated every render but closes over stable setters,
+    // so the listener staying pinned to the first instance is fine.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Tab counts
   const tabs = useMemo<TabDef[]>(() => {
     const uncat = txList.filter((t: any) => !t.category_id && !t.is_income).length;
