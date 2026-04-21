@@ -1,7 +1,6 @@
 "use client";
-import React from "react";
-import { fmtMoney } from "@/lib/budget";
-import { forecastCategory } from "@/lib/budget";
+import React, { useState } from "react";
+import { fmtMoney, forecastCategory } from "@/lib/budget";
 
 export function DashBudgetTab({
   categories, names, spentByCat, budgetMap, transactions, monthTxns,
@@ -19,13 +18,16 @@ export function DashBudgetTab({
   const colorFor = (name: string) =>
     categories.find((c) => c.name === name)?.color ?? "var(--ink-muted)";
 
-  // Drill-in: clicking a row jumps to the Ledger filtered to that category.
-  // BudgetShell listens for `budget:cmd` and routes the action.
-  const openCategory = (name: string) => {
-    window.dispatchEvent(new CustomEvent("budget:cmd", {
-      detail: { kind: "filter-category", categoryName: name },
-    }));
-  };
+  // Which category row is expanded. Null = none; only one open at a time.
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const toggle = (name: string) =>
+    setExpanded((cur) => (cur === name ? null : name));
+
+  // Open the full transaction in the Receipt Drawer. BudgetShell listens
+  // for this event — same one LedgerPage rows use on double-click.
+  const openReceipt = (id: string) =>
+    window.dispatchEvent(new CustomEvent("budget:open-receipt", { detail: { id } }));
 
   return (
     <div>
@@ -38,7 +40,13 @@ export function DashBudgetTab({
         const fc = isCurrentMonth && bg > 0 ? forecastCategory(transactions, month, c) : null;
         const projPct = fc && bg > 0 ? Math.min((fc.projected / bg) * 100, 100) : 0;
         const projOver = fc && fc.projected > bg && bg > 0;
-        const txCount = monthTxns.filter((t) => t.category === c).length;
+
+        // Transactions in this category for the selected month, newest first.
+        const rows = monthTxns
+          .filter((t) => t.category === c)
+          .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+        const txCount = rows.length;
+        const isOpen = expanded === c;
 
         return (
           <div key={c}>
@@ -46,14 +54,28 @@ export function DashBudgetTab({
               className="cat-row"
               role="button"
               tabIndex={0}
-              onClick={() => openCategory(c)}
+              aria-expanded={isOpen}
+              onClick={() => toggle(c)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openCategory(c); }
+                if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(c); }
               }}
-              title={`Open ${c} in the Ledger`}
+              title={isOpen ? `Collapse ${c}` : `Expand ${c} — ${txCount} txns`}
               style={{ cursor: "pointer" }}
             >
               <div className="cat-row-top">
+                <span
+                  aria-hidden
+                  style={{
+                    display: "inline-block",
+                    width: 10,
+                    marginRight: 2,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 10,
+                    color: "var(--ink-faint)",
+                    transform: isOpen ? "rotate(90deg)" : "none",
+                    transition: "transform 120ms",
+                  }}
+                >▸</span>
                 <span className="cat-swatch" style={{ background: colorFor(c) }} />
                 <span className="cat-name">{c}</span>
                 <span className="mono" style={{ color: "var(--ink-faint)", fontSize: 11 }}>
@@ -100,6 +122,75 @@ export function DashBudgetTab({
                 }}>No budget set</div>
               )}
             </div>
+
+            {/* Expanded transaction list for this category, in-place. */}
+            {isOpen && (
+              <div
+                style={{
+                  margin: "2px 0 16px 24px",
+                  padding: "8px 0 4px",
+                  borderLeft: `2px solid ${colorFor(c)}`,
+                  paddingLeft: 14,
+                }}
+              >
+                {rows.length === 0 ? (
+                  <div className="mono" style={{
+                    fontSize: 11, color: "var(--ink-faint)",
+                    letterSpacing: "0.08em", textTransform: "uppercase",
+                    padding: "6px 0",
+                  }}>
+                    No transactions this month
+                  </div>
+                ) : (
+                  <div>
+                    {rows.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={(e) => { e.stopPropagation(); openReceipt(t.id); }}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "80px 1fr auto",
+                          gap: 12,
+                          width: "100%",
+                          background: "none",
+                          border: "none",
+                          borderBottom: "1px solid var(--rule-soft)",
+                          padding: "8px 4px",
+                          textAlign: "left",
+                          cursor: "pointer",
+                          alignItems: "baseline",
+                          color: "inherit",
+                        }}
+                        title="Open receipt"
+                      >
+                        <span className="mono" style={{
+                          fontSize: 11, color: "var(--ink-faint)",
+                          letterSpacing: "0.04em",
+                        }}>
+                          {t.date}
+                        </span>
+                        <span style={{
+                          fontFamily: "Source Serif 4, Georgia, serif",
+                          fontSize: 15,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}>
+                          {t.merchant || t.description || "—"}
+                        </span>
+                        <span className="mono" style={{
+                          fontSize: 13,
+                          fontVariantNumeric: "tabular-nums",
+                          color: t.amount < 0 ? "var(--good)" : "var(--ink)",
+                        }}>
+                          {fmtMoney(Math.abs(t.amount))}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       })}
