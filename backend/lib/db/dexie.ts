@@ -64,7 +64,7 @@ export interface ProfileRow {
  */
 export interface PendingOp {
   id?: number;                   // auto-increment
-  op: "create" | "update" | "delete";
+  op: "create" | "update" | "delete" | "upsert";
   table: "categories" | "budgets" | "transactions" | "rules" | "goals" | "profile";
   row_id: string;                // server id (uuid, or "profile")
   payload: unknown;              // body to send

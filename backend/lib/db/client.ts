@@ -325,6 +325,32 @@ export async function deleteRule(id: string): Promise<void> {
   catch { await enqueue({ op: "delete", table: "rules", row_id: id, payload: {} }); }
 }
 
+/* ---- Budgets: PUT-upsert envelope ---- */
+export async function upsertBudgets(
+  entries: { category_id: string; amount: number }[]
+): Promise<AnyRow[]> {
+  // Optimistic local mirror
+  for (const b of entries) {
+    const existing = await db.budgets
+      .filter((x: any) => x.category_id === b.category_id && !x.deleted_at)
+      .first();
+    const optimistic = stampLocal({
+      id: existing?.id ?? nanoUuid(),
+      category_id: b.category_id,
+      amount: b.amount,
+    });
+    await (db.budgets as any).put(optimistic);
+  }
+  try {
+    const rows = await call<AnyRow[]>("PUT", "/api/budgets", { budgets: entries });
+    for (const r of rows) await (db.budgets as any).put({ ...r, _dirty: 0 });
+    return rows;
+  } catch {
+    await enqueue({ op: "upsert", table: "budgets", row_id: "_bulk_" + Date.now(), payload: { budgets: entries } });
+    return db.budgets.filter((b: any) => !b.deleted_at).toArray();
+  }
+}
+
 /* ============================================================================
  * Drain queue — retry every pending op in FIFO order.
  * Exponential backoff per op via `attempts` counter (capped at 10).
@@ -377,5 +403,8 @@ async function executeOp(op: PendingOp) {
     await call("PATCH", `${base}/${row_id}`, payload);
   } else if (kind === "delete") {
     await call("DELETE", `${base}/${row_id}`);
+  } else if (kind === "upsert") {
+    // bulk upsert (budgets) — PUT the whole envelope
+    await call("PUT", base, payload);
   }
 }
