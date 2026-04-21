@@ -7,6 +7,26 @@ function fmtShort(n: number): string {
   return "$" + Math.round(n);
 }
 
+type ForecastData = {
+  cumActual: number[];
+  projected: number[];
+  mean: number[];
+  stddev: number[];
+  daysInMonth: number;
+  todayDay: number;
+  isCurrentMonth: boolean;
+  pastCount: number;
+  totalBudget: number;
+  noHistory: false;
+};
+type ForecastEmpty = {
+  cumActual: number[];
+  daysInMonth: number;
+  todayDay: number;
+  noHistory: true;
+};
+type ForecastResult = ForecastData | ForecastEmpty | null;
+
 export function ForecastChart({
   transactions, budgets, selectedMonth,
 }: {
@@ -14,7 +34,7 @@ export function ForecastChart({
   budgets: Record<string, string | number>;
   selectedMonth: string;
 }) {
-  const forecast = React.useMemo(() => {
+  const forecast = React.useMemo<ForecastResult>(() => {
     if (!selectedMonth || selectedMonth === "all") return null;
     const today = new Date();
     const [year, month] = selectedMonth.split("-").map(Number);
@@ -100,43 +120,44 @@ export function ForecastChart({
       </div>
     );
   }
+  const f = forecast as ForecastData;
 
   const W = 720, H = 260, P = { top: 20, right: 20, bottom: 30, left: 50 };
   const innerW = W - P.left - P.right, innerH = H - P.top - P.bottom;
   const maxY = Math.max(
-    forecast.mean![forecast.daysInMonth] + forecast.stddev![forecast.daysInMonth] * 1.5,
-    forecast.projected![forecast.daysInMonth],
-    forecast.totalBudget || 0
+    f.mean[f.daysInMonth] + f.stddev[f.daysInMonth] * 1.5,
+    f.projected[f.daysInMonth],
+    f.totalBudget || 0
   ) * 1.05;
-  const x = (d: number) => P.left + (d / forecast.daysInMonth) * innerW;
+  const x = (d: number) => P.left + (d / f.daysInMonth) * innerW;
   const y = (v: number) => P.top + innerH - (v / maxY) * innerH;
 
   const bandHi: string[] = [], bandLo: string[] = [];
-  for (let d = 0; d <= forecast.daysInMonth; d++) {
-    bandHi.push(`${x(d)},${y(forecast.mean![d] + forecast.stddev![d])}`);
-    bandLo.push(`${x(d)},${y(Math.max(0, forecast.mean![d] - forecast.stddev![d]))}`);
+  for (let d = 0; d <= f.daysInMonth; d++) {
+    bandHi.push(`${x(d)},${y(f.mean[d] + f.stddev[d])}`);
+    bandLo.push(`${x(d)},${y(Math.max(0, f.mean[d] - f.stddev[d]))}`);
   }
   const bandPath = "M" + bandHi.join(" L") + " L" + bandLo.reverse().join(" L") + " Z";
 
-  const meanPath = forecast.mean!
+  const meanPath = f.mean
     .map((v, d) => (d === 0 ? "M" : "L") + x(d) + "," + y(v))
     .join(" ");
-  const actualPath = forecast.cumActual
-    .slice(0, forecast.todayDay + 1)
+  const actualPath = f.cumActual
+    .slice(0, f.todayDay + 1)
     .map((v, d) => (d === 0 ? "M" : "L") + x(d) + "," + y(v))
     .join(" ");
   const projPath =
-    forecast.isCurrentMonth && forecast.todayDay < forecast.daysInMonth
-      ? forecast.projected!
-          .slice(forecast.todayDay)
-          .map((v, i) => (i === 0 ? "M" : "L") + x(forecast.todayDay + i) + "," + y(v))
+    f.isCurrentMonth && f.todayDay < f.daysInMonth
+      ? f.projected
+          .slice(f.todayDay)
+          .map((v, i) => (i === 0 ? "M" : "L") + x(f.todayDay + i) + "," + y(v))
           .join(" ")
       : null;
 
   const yTicks = [0, maxY * 0.25, maxY * 0.5, maxY * 0.75, maxY];
-  const endActual = forecast.cumActual[forecast.todayDay];
-  const endProj = forecast.projected![forecast.daysInMonth];
-  const endMean = forecast.mean![forecast.daysInMonth];
+  const endActual = f.cumActual[f.todayDay];
+  const endProj = f.projected[f.daysInMonth];
+  const endMean = f.mean[f.daysInMonth];
   const pctVsMean = endMean > 0 ? ((endProj - endMean) / endMean) * 100 : 0;
 
   return (
@@ -180,7 +201,7 @@ export function ForecastChart({
               </text>
             </g>
           ))}
-          {[1, 5, 10, 15, 20, 25, forecast.daysInMonth].map((d) => (
+          {[1, 5, 10, 15, 20, 25, f.daysInMonth].map((d) => (
             <g key={d}>
               <line x1={x(d)} x2={x(d)} y1={y(0)} y2={y(0) + 4} stroke="var(--ink-muted)" />
               <text x={x(d)} y={y(0) + 16} textAnchor="middle"
@@ -192,14 +213,14 @@ export function ForecastChart({
           <path d={bandPath} fill="url(#forecast-stripe)" opacity="0.9" />
           <path d={meanPath} fill="none" stroke="var(--accent, #6b4423)"
             strokeWidth="1.5" strokeDasharray="4,3" opacity="0.65" />
-          {forecast.totalBudget > 0 && (
+          {f.totalBudget > 0 && (
             <g>
               <line x1={P.left} x2={W - P.right}
-                y1={y(forecast.totalBudget)} y2={y(forecast.totalBudget)}
+                y1={y(f.totalBudget)} y2={y(f.totalBudget)}
                 stroke="var(--bad)" strokeWidth="1" strokeDasharray="2,3" opacity="0.6" />
-              <text x={W - P.right - 2} y={y(forecast.totalBudget) - 4} textAnchor="end"
+              <text x={W - P.right - 2} y={y(f.totalBudget) - 4} textAnchor="end"
                 fontSize="10" fill="var(--bad)" fontFamily="JetBrains Mono, monospace">
-                budget {fmtShort(forecast.totalBudget)}
+                budget {fmtShort(f.totalBudget)}
               </text>
             </g>
           )}
@@ -208,12 +229,12 @@ export function ForecastChart({
             <path d={projPath} fill="none" stroke="var(--ink)" strokeWidth="2"
               strokeDasharray="5,4" opacity="0.7" />
           )}
-          {forecast.isCurrentMonth && forecast.todayDay > 0 && (
+          {f.isCurrentMonth && f.todayDay > 0 && (
             <g>
-              <line x1={x(forecast.todayDay)} x2={x(forecast.todayDay)}
+              <line x1={x(f.todayDay)} x2={x(f.todayDay)}
                 y1={P.top} y2={y(0)}
                 stroke="var(--ink)" strokeDasharray="1,3" opacity="0.4" />
-              <circle cx={x(forecast.todayDay)} cy={y(endActual)} r="4" fill="var(--ink)" />
+              <circle cx={x(f.todayDay)} cy={y(endActual)} r="4" fill="var(--ink)" />
             </g>
           )}
         </svg>
@@ -222,7 +243,7 @@ export function ForecastChart({
         <span className="legend-dot" style={{ background: "var(--ink)" }} /> actual
         <span className="legend-dot dashed" style={{ borderColor: "var(--ink)" }} /> projection
         <span className="legend-dot" style={{ background: "var(--accent, #6b4423)" }} />
-        typical range (±1σ across {forecast.pastCount} prior months)
+        typical range (±1σ across {f.pastCount} prior months)
       </div>
     </div>
   );
