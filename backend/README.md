@@ -1,70 +1,47 @@
-# Budget Ledger — Multi-User Cloud Edition
+# M4a delta — drop these into your `backend/` repo
 
-A full-stack version of Budget Ledger with accounts, a Postgres database, and offline-first sync.
+This zip contains **only the files added/changed in milestone M4a**. It slots into the Next.js app you already have.
 
-## Stack
-
-| Layer | Tech |
-|---|---|
-| Frontend | Next.js 14 (App Router) + React 18 + Vite-compatible |
-| Backend | Next.js API routes (serverless) |
-| Database | Supabase Postgres |
-| Auth | Supabase Auth (magic link + email/password + Google) |
-| Offline | IndexedDB (Dexie) + service worker + last-write-wins sync |
-| AI | Anthropic SDK (server-side) |
-| Hosting | Vercel (frontend + API), Supabase (DB + auth) |
-| Cost | $0/mo to start |
-
-## Project layout (monorepo)
+## File map
 
 ```
-backend/
-├── app/                     # Next.js app router
-│   ├── (auth)/             # sign-in, sign-up pages
-│   ├── (app)/              # authed app pages
-│   ├── api/                # server routes
-│   │   ├── transactions/
-│   │   ├── categories/
-│   │   ├── budgets/
-│   │   ├── rules/
-│   │   ├── goals/
-│   │   ├── sync/           # batch push/pull for offline
-│   │   └── ai/             # categorize, parse
-│   └── layout.tsx
-├── lib/
-│   ├── supabase/           # server + browser clients
-│   ├── db/                 # Dexie (IndexedDB)
-│   ├── sync/               # sync engine
-│   └── schemas/            # Zod validators
-├── components/             # React components (ported from HTML version)
-├── supabase/
-│   └── migrations/         # SQL schema + RLS policies
-├── public/
-│   └── sw.js               # service worker
-├── DEPLOY.md               # step-by-step hosting guide
-├── .env.example
-├── package.json
-├── next.config.js
-└── tsconfig.json
+app/globals.css                        ← REPLACES existing (full editorial stylesheet)
+app/app/page.tsx                        ← REPLACES existing placeholder (renders <BudgetShell/>)
+components/budget/Primitives.tsx        ← NEW
+components/budget/BudgetShell.tsx       ← NEW
+lib/budget/types.ts                     ← NEW
+lib/budget/format.ts                    ← NEW
+lib/budget/defaults.ts                  ← NEW
+lib/budget/parsers.ts                   ← NEW
+lib/budget/txn.ts                       ← NEW
+lib/budget/inbox.ts                     ← NEW
+lib/budget/demo.ts                      ← NEW
+lib/budget/index.ts                     ← NEW (barrel export)
 ```
 
-## Milestones
+## What's in M4a
 
-- **M1** — Foundation: schema, auth, sign-in page. ⬅ **current**
-- M2 — API routes for CRUD
-- M3 — Offline-first sync
-- M4 — Port full UI
-- M5 — Server-side AI
-- M6 — Import from the HTML version's localStorage
-- M7 — Deploy docs
+- Full editorial design system (warm-paper palette, IBM Plex Serif + Mono, dark mode)
+- Typed budget logic library (dedupe, recurring detection, transfers, splits, forecast, anomalies, envelopes, weekly digest, smart inbox, demo-data generator)
+- UI primitives (`Btn`, `Pill`, `Masthead`, `Tabs`, `SectionHead`, `MonthPicker`, `Modal`, `EmptyState`, `Flash`)
+- App shell with all 7 tabs (Dashboard, Ledger, Rules, Goals, Weekly, Compare, Setup) wired to live Supabase data via the React Query hooks from M2
 
-## Quick start (after M1 ships)
+## What's still stubbed (coming in M4b–e)
+
+- Transaction writes (add / edit / delete / split / bulk ops)
+- Keyboard nav, command palette, receipt drawer
+- Weekly digest + Compare full UIs
+- Setup's demo loader + CSV import action
+
+## Install
 
 ```bash
-cd backend
-npm install
-cp .env.example .env.local   # fill in values
-npm run dev                   # → http://localhost:3000
+# from your backend/ repo root
+unzip m4a-delta.zip
+cp -r m4a-delta/* ./
+rm -rf m4a-delta m4a-delta.zip
+
+npm run dev
 ```
 
-See `DEPLOY.md` for the Supabase + Vercel setup steps.
+Visit `/app` after signing in.
