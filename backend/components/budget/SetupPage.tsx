@@ -10,6 +10,7 @@ import { fmtMoney } from "@/lib/budget";
 import { loadDemoData } from "@/lib/budget/demo-loader";
 import { parseCSV } from "@/lib/budget/csv";
 import { createTransaction } from "@/lib/db/client";
+import { readLegacyJSON, importLegacyDump } from "@/lib/budget/json-import";
 import { SectionHead, EmptyState, Btn } from "./Primitives";
 import { DangerZone } from "./DangerZone";
 
@@ -36,6 +37,7 @@ export function SetupPage({ userEmail }: { userEmail: string }) {
   const [flash, setFlash] = React.useState<string | null>(null);
   const [importReport, setImportReport] = React.useState<string | null>(null);
   const fileRef = React.useRef<HTMLInputElement>(null);
+  const jsonRef = React.useRef<HTMLInputElement>(null);
 
   // Local budget overrides (edited but not yet saved)
   const [budgetDraft, setBudgetDraft] = React.useState<Record<string, string>>({});
@@ -155,6 +157,48 @@ export function SetupPage({ userEmail }: { userEmail: string }) {
     } finally { setBusy(false); }
   };
 
+  // One-time migration from the legacy standalone HTML.
+  // Old app's Export JSON dumps categories/budgets/txns/rules/goals.
+  const onJSONFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    if (!file.name.toLowerCase().endsWith(".json")) {
+      setImportReport("Pick a .json file (from the old app's Export JSON button).");
+      return;
+    }
+    setBusy(true);
+    setImportReport(`Reading ${file.name}…`);
+    try {
+      const dump = await readLegacyJSON(file);
+      const res = await importLegacyDump(
+        dump,
+        { categories: (cats.data ?? []) as any },
+        (msg) => setImportReport(msg),
+      );
+      // Pull fresh data in now that the writes are in flight.
+      await Promise.all([cats.refresh(), budgets.refresh(), txns.refresh()]);
+      const parts = [
+        `${res.txnsCreated} txns imported`,
+        res.txnsSkipped ? `${res.txnsSkipped} skipped` : null,
+        res.catsCreated ? `${res.catsCreated} new cats` : null,
+        res.catsReused ? `${res.catsReused} reused` : null,
+        res.budgetsUpserted ? `${res.budgetsUpserted} budgets` : null,
+        res.rulesCreated ? `${res.rulesCreated} rules` : null,
+        res.goalsCreated ? `${res.goalsCreated} goals` : null,
+      ].filter(Boolean).join(" · ");
+      setImportReport(`Imported from ${file.name}: ${parts}`);
+      if (res.warnings.length) {
+        // Surface first few warnings in console so it's debuggable.
+        console.warn(`[ledger] JSON import warnings (${res.warnings.length}):`);
+        res.warnings.slice(0, 20).forEach((w) => console.warn("  " + w));
+      }
+      setTimeout(() => setImportReport(null), 8000);
+    } catch (err: any) {
+      setImportReport("JSON import failed: " + (err?.message || "unknown error"));
+    } finally { setBusy(false); }
+  };
+
   const spending = catList.filter((c: any) => !c.is_income);
   const incomeCats = catList.filter((c: any) => c.is_income);
 
@@ -191,6 +235,12 @@ export function SetupPage({ userEmail }: { userEmail: string }) {
         </Btn>
         <input ref={fileRef} type="file" accept=".csv"
           onChange={onCSVFile} style={{ display: "none" }} />
+        <Btn ghost onClick={() => jsonRef.current?.click()} disabled={busy}
+             title="Import from the old standalone HTML app's Export JSON">
+          Import from JSON
+        </Btn>
+        <input ref={jsonRef} type="file" accept=".json,application/json"
+          onChange={onJSONFile} style={{ display: "none" }} />
         {importReport && (
           <span style={{
             marginLeft: "auto", alignSelf: "center",

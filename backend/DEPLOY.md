@@ -29,9 +29,10 @@ All have generous free tiers. You won't be charged anything unless you cross ~10
 ### 2b. Run the schema
 
 1. Left sidebar → **SQL Editor** → **New query**
-2. Open `backend/supabase/migrations/0001_initial.sql` from this repo
-3. Paste the entire contents into the editor → **Run**
-4. You should see `Success. No rows returned.`
+2. Open `backend/supabase/migrations/0001_initial.sql` — paste contents → **Run**
+3. **New query** again; open `backend/supabase/migrations/0002_category_is_income.sql` — paste contents → **Run**
+4. If you add more migrations later, run them in numeric order. Each one is a single `Run` click.
+5. You should see `Success. No rows returned.` after each.
 
 ### 2c. Grab your API keys
 
@@ -147,7 +148,24 @@ In Vercel → **Settings** → **Domains** → add yours. They give you DNS reco
 
 ## Part 6 — Verify
 
-Open your live URL, sign in with all three methods, confirm you land on `/app` and see the session info. You're done with M1.
+Open your live URL, sign in with all three methods, confirm you land on `/app` and see the shell. Open Setup → Load demo data, then poke around the Ledger, Dashboard, Weekly, Compare, Rules, Goals tabs.
+
+---
+
+## Part 7 — Importing from the old standalone (optional)
+
+If you ran the HTML-only version before this:
+
+1. Open that HTML file in the browser where your data lives
+2. Setup → **Export JSON** — you'll get `budget-export-*.json`
+3. In the new app: Setup → **Import from JSON** — pick the file
+4. Watch the status line; warnings (unknown categories, bad rows) print to the browser console as `[ledger] JSON import warnings…`
+
+The importer:
+- Matches categories by name (existing rows win)
+- Upserts budgets by (user, category)
+- Dedupes transactions in-run on `date|amount|description`
+- Imports rules/goals only if the referenced category exists
 
 ---
 
@@ -156,22 +174,25 @@ Open your live URL, sign in with all three methods, confirm you land on `/app` a
 | Problem | Fix |
 |---|---|
 | "Invalid login credentials" | Check SUPABASE keys match the project |
-| Magic link email not arriving | Check spam. Supabase free tier uses a rate-limited mailer; add your own SMTP in Supabase Auth → Emails for reliability. |
+| Magic link email not arriving | Check spam. Supabase's free mailer is rate-limited — plug in your own SMTP in Supabase Auth → Emails for reliability |
 | Google button loops back to sign-in | Google OAuth redirect URI must be EXACTLY `https://YOUR-PROJECT.supabase.co/auth/v1/callback` — no trailing slash |
-| "Row-level security policy violation" | You haven't run the migration — see Part 2b |
+| "Row-level security policy violation" | You haven't run the migrations — see Part 2b (both `0001_` and `0002_`) |
+| 422 on POST /api/categories with `is_income` | You skipped migration `0002_category_is_income.sql` — run it |
+| 422 on GET /api/transactions with `limit=2000` | Old cap was 1000; current schema accepts up to 5000. Pull the latest code |
 | Vercel build fails with "Module not found" | Ensure `backend` is set as Root Directory in Vercel, not repo root |
+| "Cannot read properties of undefined (reading 'startsWith')" on Dashboard | Pre-fix code — pull the latest; this was caused by rendering a Date object directly |
+| Pending writes won't drain | Reset widget (bottom-right, dev-only) → Flush now. If they 4xx permanently, they move to dead-letter and stop retrying |
 
 ---
 
-## What's next
+## What ships
 
-You're now at M1 done. Upcoming milestones (I'll deliver each as a single conversation turn):
+All milestones landed:
 
-- **M2** — API routes for reading/writing your actual budget data
-- **M3** — Offline-first: IndexedDB + sync engine so the app keeps working with no signal
-- **M4** — Port the full editorial UI (ledger, dashboard, compare, rules, goals)
-- **M5** — Move AI categorization server-side so it works across devices
-- **M6** — Import your existing localStorage data from the HTML version
-- **M7** — Final README + production polish
-
-Tell me when M1 is running locally and I'll ship M2.
+- **M1** — Foundation (schema, auth)
+- **M2** — CRUD API routes
+- **M3** — Offline-first sync + service worker
+- **M4** — Full UI port (Ledger / Dashboard / Compare / Weekly / Rules / Goals / Setup / ⌘K / Drawer / Onboarding)
+- **M5** — Server-side AI (categorize / parse / insights) with per-user daily cap + merchant-map cache
+- **M6** — JSON importer from the legacy standalone
+- **M7** — This doc
