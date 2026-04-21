@@ -233,6 +233,9 @@ export function SetupPage({ userEmail }: { userEmail: string }) {
         <a href="/app/imports/new" className="btn primary" style={{ textDecoration: "none" }}>
           Import wizard →
         </a>
+        <a href="/app/imports" className="btn ghost" style={{ textDecoration: "none" }}>
+          Import history
+        </a>
         <Btn ghost onClick={() => fileRef.current?.click()} disabled={busy}>
           Quick CSV upload
         </Btn>
