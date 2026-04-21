@@ -230,8 +230,11 @@ export function SetupPage({ userEmail }: { userEmail: string }) {
         <Btn primary onClick={loadDemo} disabled={busy}>
           {busy && importReport?.startsWith("Load") ? "Loading…" : "Load demo data"}
         </Btn>
+        <a href="/app/imports/new" className="btn primary" style={{ textDecoration: "none" }}>
+          Import wizard →
+        </a>
         <Btn ghost onClick={() => fileRef.current?.click()} disabled={busy}>
-          Upload bank CSV
+          Quick CSV upload
         </Btn>
         <input ref={fileRef} type="file" accept=".csv"
           onChange={onCSVFile} style={{ display: "none" }} />
