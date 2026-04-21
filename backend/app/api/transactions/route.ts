@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
       source: t.source ?? "manual",
       source_file: t.source_file ?? null,
       raw: t.raw ?? null,
+      import_batch_id: t.import_batch_id ?? null,
     }));
     const { data, error } = await supabase.from("transactions").insert(rows).select();
     if (error) {

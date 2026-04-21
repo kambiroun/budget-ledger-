@@ -74,6 +74,7 @@ export const TransactionCreate = z.object({
   source: z.enum(["csv", "paste", "manual", "demo", "import"]).optional(),
   source_file: z.string().max(200).nullable().optional(),
   raw: z.record(z.unknown()).nullable().optional(),
+  import_batch_id: uuid.nullable().optional(),
 });
 
 export const TransactionUpdate = TransactionCreate.partial();

@@ -20,6 +20,8 @@ export interface AICallInput {
   json?: boolean;
   /** Optional: abort if the model takes too long (ms). Vercel caps at ~60s. */
   timeoutMs?: number;
+  /** Optional image(s) to attach. Each entry is { media_type, data } (base64). */
+  images?: { media_type: "image/png" | "image/jpeg" | "image/gif" | "image/webp"; data: string }[];
 }
 
 export interface AICallOutput {
@@ -39,13 +41,24 @@ export async function aiComplete(input: AICallInput): Promise<AICallOutput> {
     throw new AIProviderError(500, "ai_not_configured");
   }
 
+  const userContent: any[] = [];
+  if (input.images?.length) {
+    for (const img of input.images) {
+      userContent.push({
+        type: "image",
+        source: { type: "base64", media_type: img.media_type, data: img.data },
+      });
+    }
+  }
+  userContent.push({ type: "text", text: input.user });
+
   const body = {
     model: MODEL,
     max_tokens: input.maxTokens ?? 1024,
     system: input.system + (input.json
       ? "\n\nReturn ONLY valid JSON — no preamble, no markdown fences."
       : ""),
-    messages: [{ role: "user", content: input.user }],
+    messages: [{ role: "user", content: userContent }],
   };
 
   const ctrl = new AbortController();
