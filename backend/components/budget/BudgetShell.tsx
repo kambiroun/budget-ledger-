@@ -2,8 +2,9 @@
 import React, { useMemo, useState } from "react";
 import { Masthead, Tabs, SectionHead, EmptyState, TabDef } from "@/components/budget/Primitives";
 import { LedgerPage } from "@/components/budget/LedgerPage";
+import { DashboardPage } from "@/components/budget/DashboardPage";
 import { useCategories, useTransactions, useBudgets, useGoals, useRules } from "@/lib/hooks/useData";
-import { monthKey, monthLabel, fmtMoney } from "@/lib/budget";
+import { fmtMoney } from "@/lib/budget";
 
 type TabKey = "dashboard" | "ledger" | "weekly" | "compare" | "rules" | "goals" | "setup";
 
@@ -53,7 +54,7 @@ export function BudgetShell({ userEmail }: { userEmail: string }) {
         </div>
       )}
 
-      {active === "dashboard" && <DashboardStub txns={txList} cats={cats.data ?? []} budgets={budgets.data ?? []} />}
+      {active === "dashboard" && <DashboardPage />}
       {active === "ledger"    && <LedgerPage />}
       {active === "weekly"    && <PlaceholderPanel title="Weekly digest" note="Coming in M4c — week-over-week delta, biggest charges, per-category movement." />}
       {active === "compare"   && <PlaceholderPanel title="Compare periods" note="Coming in M4d — forecast, timeline, month-vs-month, stress-test." />}
@@ -69,68 +70,7 @@ export function BudgetShell({ userEmail }: { userEmail: string }) {
    Full interactivity lands in M4b → M4e.
    ============================================================ */
 
-function DashboardStub({
-  txns, cats, budgets,
-}: { txns: any[]; cats: any[]; budgets: any[] }) {
-  const now = new Date();
-  const curMK = monthKey(now);
-  const monthTxns = txns.filter(t => t.date?.startsWith(curMK));
-  const charges = monthTxns.filter(t => !t.is_income);
-  const income  = monthTxns.filter(t =>  t.is_income);
-  const totalSpent = charges.reduce((s, t) => s + Number(t.amount || 0), 0);
-  const totalIncome = income.reduce((s, t) => s + Number(t.amount || 0), 0);
-  const totalBudget = budgets.reduce((s, b: any) => s + Number(b.amount || 0), 0);
-  const net = totalIncome - totalSpent;
 
-  return (
-    <>
-      <SectionHead title={monthLabel(curMK)} meta={`${cats.length} categories · ${monthTxns.length} entries`} />
-      <div className="summary-grid">
-        <div className="summary-cell">
-          <div className="summary-label">Income</div>
-          <div className="summary-value good">{fmtMoney(totalIncome)}</div>
-          <div className="summary-sub">{income.length} deposits</div>
-        </div>
-        <div className="summary-cell">
-          <div className="summary-label">Budget</div>
-          <div className="summary-value">{fmtMoney(totalBudget)}</div>
-          <div className="summary-sub">across {budgets.length} envelopes</div>
-        </div>
-        <div className="summary-cell">
-          <div className="summary-label">Spent</div>
-          <div className={"summary-value" + (totalSpent > totalBudget ? " bad" : "")}>{fmtMoney(totalSpent)}</div>
-          <div className="summary-sub">{charges.length} charges</div>
-        </div>
-        <div className="summary-cell">
-          <div className="summary-label">Net</div>
-          <div className={"summary-value " + (net >= 0 ? "good" : "bad")}>
-            {net >= 0 ? "+" : "−"}{fmtMoney(Math.abs(net))}
-          </div>
-          <div className="summary-sub">this month</div>
-        </div>
-      </div>
-
-      {monthTxns.length === 0 && (
-        <EmptyState>
-          Nothing yet this month. Head to <b>Setup</b> and either load the demo data or
-          import a CSV, and the dashboard will fill in automatically.
-        </EmptyState>
-      )}
-
-      <div className="insight-narrative">
-        <div className="insight-narrative-head">
-          <div className="mono" style={{ fontSize: 10, letterSpacing: "0.18em", color: "var(--ink-muted)" }}>
-            COMING SOON
-          </div>
-        </div>
-        <p className="insight-narrative-text">
-          Forecast, envelope rollovers, rhythm heatmap, anomaly flags, and AI narrative insight
-          will land as we port the full Dashboard in the next milestone.
-        </p>
-      </div>
-    </>
-  );
-}
 
 function RulesStub({ rules }: { rules: any[] }) {
   return (
