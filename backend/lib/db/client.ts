@@ -416,6 +416,16 @@ export async function drainQueue() {
         const status: number | undefined = e?.status;
         const msg = String(e?.message || e);
 
+        // 409 on a create is idempotent-success: the row is already on the
+        // server (previous attempt partially succeeded). Drop the op silently.
+        if (status === 409 && op.op === "create") {
+          console.info(
+            `[ledger] sync DEDUP ${op.op} ${op.table}/${op.row_id} — already on server, dropping`
+          );
+          await db.pending.delete(op.id!);
+          continue;
+        }
+
         // 4xx = permanent client error (bad payload, not-found, auth). Never retry.
         if (typeof status === "number" && status >= 400 && status < 500) {
           console.warn(

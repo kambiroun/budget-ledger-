@@ -63,7 +63,22 @@ export async function POST(req: NextRequest) {
       raw: t.raw ?? null,
     }));
     const { data, error } = await supabase.from("transactions").insert(rows).select();
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[api] POST /api/transactions — supabase error", {
+        code: (error as any).code,
+        message: error.message,
+        details: (error as any).details,
+        hint: (error as any).hint,
+        firstRow: rows[0],
+        rowCount: rows.length,
+      });
+      // Postgres unique-violation (23505) on a client-generated id means the
+      // row is already there — surface as 409 so the client can drop the retry.
+      if ((error as any).code === "23505") {
+        throw Object.assign(new Error("duplicate_id"), { __apiStatus: 409, details: error.message });
+      }
+      throw new Error(`${error.message}${(error as any).hint ? " — " + (error as any).hint : ""}`);
+    }
     return data ?? [];
   });
 }

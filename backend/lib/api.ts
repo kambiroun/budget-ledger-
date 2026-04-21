@@ -36,7 +36,13 @@ export async function withAuth<T>(
     if (e instanceof ZodError) return err("validation_failed", 422, e.flatten());
     if (e?.__apiStatus) return err(e.message, e.__apiStatus, e.details);
     console.error("[api] unhandled", e);
-    return err(e?.message || "internal_error", 500);
+    // Surface the real message + any Supabase/PG hints in the JSON body so
+    // the client network inspector has actionable info without opening the
+    // Vercel function logs.
+    return err(e?.message || "internal_error", 500, {
+      name: e?.name,
+      stack: typeof e?.stack === "string" ? e.stack.split("\n").slice(0, 5).join("\n") : undefined,
+    });
   }
 }
 

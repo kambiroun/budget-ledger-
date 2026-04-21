@@ -28,7 +28,20 @@ export async function POST(req: NextRequest) {
       sort_order: body.sort_order ?? 0,
     };
     const { data, error } = await supabase.from("categories").insert(row).select().single();
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[api] POST /api/categories — supabase error", {
+        code: (error as any).code,
+        message: error.message,
+        details: (error as any).details,
+        hint: (error as any).hint,
+        row,
+      });
+      // Unique violation (duplicate id or duplicate user+name) → permanent.
+      if ((error as any).code === "23505") {
+        throw Object.assign(new Error("duplicate_category"), { __apiStatus: 409, details: error.message });
+      }
+      throw new Error(`${error.message}${(error as any).hint ? " — " + (error as any).hint : ""}`);
+    }
     return data;
   });
 }
