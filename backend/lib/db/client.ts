@@ -358,7 +358,8 @@ export async function deleteRule(id: string): Promise<void> {
 export async function upsertBudgets(
   entries: { category_id: string; amount: number }[]
 ): Promise<AnyRow[]> {
-  // Optimistic local mirror
+  // Optimistic local mirror. Budgets are per-category, not per-month, so
+  // no `month` field is needed. (If we ever add monthly budgets, stamp it here.)
   for (const b of entries) {
     const existing = await db.budgets
       .filter((x: any) => x.category_id === b.category_id && !x.deleted_at)

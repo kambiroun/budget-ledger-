@@ -44,17 +44,26 @@ export type SupaBudget = {
   month: string;                    // "YYYY-MM-01"
 };
 
-/** Build a name-keyed budget map for the given month. */
+/** Build a name-keyed budget map.
+ *
+ * NOTE: the DB schema stores one budget row per (user_id, category_id) —
+ * there is no `month` column. The `mk` argument is retained for API
+ * compatibility but currently ignored; once per-month budgets ship, we
+ * can re-introduce the filter here.
+ */
 export function budgetMapForMonth(
   budgets: SupaBudget[],
   cats: SupaCat[],
-  mk: string                         // "YYYY-MM"
+  _mk: string                        // "YYYY-MM" — reserved
 ): Record<string, string | number> {
   const idToName: Record<string, string> = {};
   cats.forEach((c) => (idToName[c.id] = c.name));
   const out: Record<string, string | number> = {};
-  budgets.forEach((b) => {
-    if (!b.month.startsWith(mk)) return;
+  budgets.forEach((b: any) => {
+    if (b?.deleted_at) return;
+    // If a `month` field ever appears on a row, honor it; otherwise treat
+    // the budget as applying to every month.
+    if (typeof b?.month === "string" && !b.month.startsWith(_mk)) return;
     const name = idToName[b.category_id];
     if (name) out[name] = Number(b.amount);
   });
