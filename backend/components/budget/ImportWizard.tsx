@@ -663,7 +663,7 @@ function ReviewStage({
                         {r.issues.join(", ")}
                       </div>
                     )}
-                    {dupe && (
+                    {r.dedupe.kind !== "unique" && (
                       <div style={{ color: "#d48a3c", fontFamily: "JetBrains Mono, monospace", fontSize: 10 }}>
                         {r.dedupe.kind === "exact" ? "EXACT DUPE" : "FUZZY DUPE"}
                         {" · "}
