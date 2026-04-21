@@ -78,7 +78,7 @@ type TableName = "categories" | "budgets" | "transactions" | "rules" | "goals";
 async function mirror(table: TableName, rows: any[]) {
   if (!rows.length) return;
   // Replace existing rows — server is authoritative after a successful fetch.
-  await (db as any)[table].bulkPut(rows.map(r => ({ ...r, _dirty: 0 })));
+  await (db as any)[table].bulkPut(rows.map((r: any) => ({ ...r, _dirty: 0 })));
 }
 
 /* ============================================================================
@@ -199,10 +199,10 @@ export async function createTransaction(payload: AnyRow): Promise<AnyRow> {
     ai_confidence: null, source: "manual", source_file: null, raw: null,
     ...payload,
   });
-  await db.transactions.put(optimistic);
+  await (db.transactions as any).put(optimistic);
   try {
     const row = await call<AnyRow>("POST", "/api/transactions", { ...payload, id });
-    await db.transactions.put({ ...row, _dirty: 0 });
+    await (db.transactions as any).put({ ...row, _dirty: 0 });
     return row;
   } catch (e: any) {
     await enqueue({ op: "create", table: "transactions", row_id: id, payload: { ...payload, id } });
@@ -213,10 +213,10 @@ export async function createTransaction(payload: AnyRow): Promise<AnyRow> {
 export async function updateTransaction(id: string, patch: AnyRow): Promise<AnyRow> {
   const existing = await db.transactions.get(id);
   const optimistic = stampLocal({ ...(existing ?? {}), ...patch, id });
-  await db.transactions.put(optimistic);
+  await (db.transactions as any).put(optimistic);
   try {
     const row = await call<AnyRow>("PATCH", `/api/transactions/${id}`, patch);
-    await db.transactions.put({ ...row, _dirty: 0 });
+    await (db.transactions as any).put({ ...row, _dirty: 0 });
     return row;
   } catch {
     await enqueue({ op: "update", table: "transactions", row_id: id, payload: patch });
@@ -227,7 +227,7 @@ export async function updateTransaction(id: string, patch: AnyRow): Promise<AnyR
 export async function deleteTransaction(id: string): Promise<void> {
   const existing = await db.transactions.get(id);
   if (existing) {
-    await db.transactions.put({ ...existing, deleted_at: new Date().toISOString(), _dirty: 1 });
+    await (db.transactions as any).put({ ...existing, deleted_at: new Date().toISOString(), _dirty: 1 });
   }
   try {
     await call("DELETE", `/api/transactions/${id}`);
@@ -242,10 +242,10 @@ export async function deleteTransaction(id: string): Promise<void> {
 export async function createCategory(payload: AnyRow): Promise<AnyRow> {
   const id = payload.id ?? nanoUuid();
   const optimistic = stampLocal({ id, color: null, sort_order: 0, ...payload });
-  await db.categories.put(optimistic);
+  await (db.categories as any).put(optimistic);
   try {
     const row = await call<AnyRow>("POST", "/api/categories", { ...payload, id });
-    await db.categories.put({ ...row, _dirty: 0 });
+    await (db.categories as any).put({ ...row, _dirty: 0 });
     return row;
   } catch {
     await enqueue({ op: "create", table: "categories", row_id: id, payload: { ...payload, id } });
@@ -255,10 +255,10 @@ export async function createCategory(payload: AnyRow): Promise<AnyRow> {
 export async function updateCategory(id: string, patch: AnyRow): Promise<AnyRow> {
   const existing = await db.categories.get(id);
   const optimistic = stampLocal({ ...(existing ?? {}), ...patch, id });
-  await db.categories.put(optimistic);
+  await (db.categories as any).put(optimistic);
   try {
     const row = await call<AnyRow>("PATCH", `/api/categories/${id}`, patch);
-    await db.categories.put({ ...row, _dirty: 0 });
+    await (db.categories as any).put({ ...row, _dirty: 0 });
     return row;
   } catch {
     await enqueue({ op: "update", table: "categories", row_id: id, payload: patch });
@@ -267,7 +267,7 @@ export async function updateCategory(id: string, patch: AnyRow): Promise<AnyRow>
 }
 export async function deleteCategory(id: string): Promise<void> {
   const existing = await db.categories.get(id);
-  if (existing) await db.categories.put({ ...existing, deleted_at: new Date().toISOString(), _dirty: 1 });
+  if (existing) await (db.categories as any).put({ ...existing, deleted_at: new Date().toISOString(), _dirty: 1 });
   try { await call("DELETE", `/api/categories/${id}`); await db.categories.delete(id); }
   catch { await enqueue({ op: "delete", table: "categories", row_id: id, payload: {} }); }
 }
@@ -275,10 +275,10 @@ export async function deleteCategory(id: string): Promise<void> {
 export async function createGoal(payload: AnyRow): Promise<AnyRow> {
   const id = payload.id ?? nanoUuid();
   const optimistic = stampLocal({ id, saved: 0, target_date: null, ...payload });
-  await db.goals.put(optimistic);
+  await (db.goals as any).put(optimistic);
   try {
     const row = await call<AnyRow>("POST", "/api/goals", { ...payload, id });
-    await db.goals.put({ ...row, _dirty: 0 });
+    await (db.goals as any).put({ ...row, _dirty: 0 });
     return row;
   } catch {
     await enqueue({ op: "create", table: "goals", row_id: id, payload: { ...payload, id } });
@@ -288,10 +288,10 @@ export async function createGoal(payload: AnyRow): Promise<AnyRow> {
 export async function updateGoal(id: string, patch: AnyRow): Promise<AnyRow> {
   const existing = await db.goals.get(id);
   const optimistic = stampLocal({ ...(existing ?? {}), ...patch, id });
-  await db.goals.put(optimistic);
+  await (db.goals as any).put(optimistic);
   try {
     const row = await call<AnyRow>("PATCH", `/api/goals/${id}`, patch);
-    await db.goals.put({ ...row, _dirty: 0 });
+    await (db.goals as any).put({ ...row, _dirty: 0 });
     return row;
   } catch {
     await enqueue({ op: "update", table: "goals", row_id: id, payload: patch });
@@ -300,7 +300,7 @@ export async function updateGoal(id: string, patch: AnyRow): Promise<AnyRow> {
 }
 export async function deleteGoal(id: string): Promise<void> {
   const existing = await db.goals.get(id);
-  if (existing) await db.goals.put({ ...existing, deleted_at: new Date().toISOString(), _dirty: 1 });
+  if (existing) await (db.goals as any).put({ ...existing, deleted_at: new Date().toISOString(), _dirty: 1 });
   try { await call("DELETE", `/api/goals/${id}`); await db.goals.delete(id); }
   catch { await enqueue({ op: "delete", table: "goals", row_id: id, payload: {} }); }
 }
@@ -308,10 +308,10 @@ export async function deleteGoal(id: string): Promise<void> {
 export async function createRule(payload: AnyRow): Promise<AnyRow> {
   const id = payload.id ?? nanoUuid();
   const optimistic = stampLocal({ id, priority: 0, ...payload });
-  await db.rules.put(optimistic);
+  await (db.rules as any).put(optimistic);
   try {
     const row = await call<AnyRow>("POST", "/api/rules", { ...payload, id });
-    await db.rules.put({ ...row, _dirty: 0 });
+    await (db.rules as any).put({ ...row, _dirty: 0 });
     return row;
   } catch {
     await enqueue({ op: "create", table: "rules", row_id: id, payload: { ...payload, id } });
@@ -320,7 +320,7 @@ export async function createRule(payload: AnyRow): Promise<AnyRow> {
 }
 export async function deleteRule(id: string): Promise<void> {
   const existing = await db.rules.get(id);
-  if (existing) await db.rules.put({ ...existing, deleted_at: new Date().toISOString(), _dirty: 1 });
+  if (existing) await (db.rules as any).put({ ...existing, deleted_at: new Date().toISOString(), _dirty: 1 });
   try { await call("DELETE", `/api/rules/${id}`); await db.rules.delete(id); }
   catch { await enqueue({ op: "delete", table: "rules", row_id: id, payload: {} }); }
 }
