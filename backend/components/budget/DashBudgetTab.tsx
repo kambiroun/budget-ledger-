@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { fmtMoney, forecastCategory } from "@/lib/budget";
+import { fmtMoney, fmtDate, forecastCategory } from "@/lib/budget";
 
 export function DashBudgetTab({
   categories, names, spentByCat, budgetMap, transactions, monthTxns,
@@ -42,9 +42,11 @@ export function DashBudgetTab({
         const projOver = fc && fc.projected > bg && bg > 0;
 
         // Transactions in this category for the selected month, newest first.
+        // `toLegacyTxns` converts `date` to a Date object, so compare by time
+        // and render via `fmtDate`.
         const rows = monthTxns
           .filter((t) => t.category === c)
-          .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+          .sort((a, b) => (b.date?.getTime?.() ?? 0) - (a.date?.getTime?.() ?? 0));
         const txCount = rows.length;
         const isOpen = expanded === c;
 
@@ -167,7 +169,7 @@ export function DashBudgetTab({
                           fontSize: 11, color: "var(--ink-faint)",
                           letterSpacing: "0.04em",
                         }}>
-                          {t.date}
+                          {fmtDate(t.date)}
                         </span>
                         <span style={{
                           fontFamily: "Source Serif 4, Georgia, serif",
@@ -176,7 +178,7 @@ export function DashBudgetTab({
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
                         }}>
-                          {t.merchant || t.description || "—"}
+                          {t.description || "—"}
                         </span>
                         <span className="mono" style={{
                           fontSize: 13,

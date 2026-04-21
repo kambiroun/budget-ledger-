@@ -101,7 +101,7 @@ export const TransactionListQuery = z.object({
   to: isoDate.optional(),
   category_id: uuid.optional(),
   q: z.string().max(200).optional(),
-  limit: z.coerce.number().int().min(1).max(1000).optional(),
+  limit: z.coerce.number().int().min(1).max(5000).optional(),
   offset: z.coerce.number().int().min(0).optional(),
   include_deleted: z.coerce.boolean().optional(),
 });
