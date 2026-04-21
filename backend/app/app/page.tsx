@@ -39,7 +39,17 @@ export default async function AppHome() {
         </div>
       </div>
 
-      <SignOutButton />
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <a href="/app/try" style={{
+          padding: "10px 18px", background: "var(--ink)", color: "var(--bg)",
+          textDecoration: "none",
+          fontFamily: '"JetBrains Mono", monospace', fontSize: 11,
+          letterSpacing: "0.12em", textTransform: "uppercase",
+        }}>
+          Try the backend →
+        </a>
+        <SignOutButton />
+      </div>
     </main>
   );
 }
