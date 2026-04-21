@@ -39,7 +39,7 @@ export default async function AppHome() {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <a href="/app/try" style={{
           padding: "10px 18px", background: "var(--ink)", color: "var(--bg)",
           textDecoration: "none",
@@ -47,6 +47,14 @@ export default async function AppHome() {
           letterSpacing: "0.12em", textTransform: "uppercase",
         }}>
           Try the backend →
+        </a>
+        <a href="/app/offline" style={{
+          padding: "10px 18px", background: "var(--bg-card)", color: "var(--ink)",
+          border: "1px solid var(--rule)", textDecoration: "none",
+          fontFamily: '"JetBrains Mono", monospace', fontSize: 11,
+          letterSpacing: "0.12em", textTransform: "uppercase",
+        }}>
+          Offline test →
         </a>
         <SignOutButton />
       </div>
