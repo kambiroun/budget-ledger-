@@ -76,7 +76,7 @@ export async function loadDemoData(
           category_id: t.isIncome
             ? incomeCatId
             : (t.category ? (nameToId.get(t.category) ?? null) : null),
-          source: "Demo",
+          source: "demo",
         })
       )
     );

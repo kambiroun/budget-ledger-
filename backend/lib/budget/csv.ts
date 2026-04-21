@@ -82,21 +82,24 @@ function parseMoney(s: string): number {
 
 export function parseCSV(text: string): { rows: ParsedRow[]; errors: string[] } {
   const errors: string[] = [];
-  const lines = text.replace(/\r/g, "").split("\n").filter((l) => l.trim().length > 0);
+  // Strip UTF-8 BOM if present
+  const stripped = text.replace(/^\uFEFF/, "");
+  const lines = stripped.replace(/\r/g, "").split("\n").filter((l) => l.trim().length > 0);
   if (lines.length < 2) return { rows: [], errors: ["CSV has no data rows."] };
 
   const delim = detectDelimiter(lines[0]);
-  const headers = splitCSVLine(lines[0], delim);
+  const headers = splitCSVLine(lines[0], delim)
+    .map((h) => h.replace(/^"+|"+$/g, "").trim());
 
-  const dateCol = matchCol(headers, [/date/, /posted/]);
-  const descCol = matchCol(headers, [/desc/, /name/, /merchant/, /memo/, /payee/]);
-  const amtCol  = matchCol(headers, [/^amount$/, /amount/]);
-  const debitCol = matchCol(headers, [/debit|withdrawal|outflow/]);
-  const creditCol = matchCol(headers, [/credit|deposit|inflow/]);
+  const dateCol = matchCol(headers, [/date/, /posted/, /time/]);
+  const descCol = matchCol(headers, [/desc/, /name/, /merchant/, /memo/, /payee/, /detail/, /narrat/, /transaction/]);
+  const amtCol  = matchCol(headers, [/^amount$/, /amount/, /^value$/, /^amt/]);
+  const debitCol = matchCol(headers, [/debit|withdrawal|outflow|paid out|charges?/]);
+  const creditCol = matchCol(headers, [/credit|deposit|inflow|paid in/]);
 
-  if (dateCol < 0) errors.push("No date column found.");
-  if (descCol < 0) errors.push("No description/merchant column found.");
-  if (amtCol < 0 && debitCol < 0 && creditCol < 0) errors.push("No amount column found.");
+  if (dateCol < 0) errors.push(`No date column found. Headers: ${headers.join(", ")}`);
+  if (descCol < 0) errors.push(`No description/merchant column found. Headers: ${headers.join(", ")}`);
+  if (amtCol < 0 && debitCol < 0 && creditCol < 0) errors.push(`No amount column found. Headers: ${headers.join(", ")}`);
   if (errors.length) return { rows: [], errors };
 
   const rows: ParsedRow[] = [];

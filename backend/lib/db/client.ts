@@ -19,12 +19,14 @@ import { nanoUuid } from "@/lib/util/uuid";
 export type NetState = {
   online: boolean;
   syncing: boolean;
+  /** Permanent (4xx) errors from the last drain — caller should surface + let user resolve. */
+  deadLetters?: { table: string; op: string; error: string; at: string }[];
   pending: number;
 };
 
 type Listener = (s: NetState) => void;
 const listeners = new Set<Listener>();
-let state: NetState = { online: true, syncing: false, pending: 0 };
+let state: NetState = { online: true, syncing: false, pending: 0, deadLetters: [] };
 
 export function subscribe(fn: Listener) {
   listeners.add(fn);
@@ -43,8 +45,8 @@ export function initNetwork() {
   update();
   window.addEventListener("online", () => { update(); drainQueue(); });
   window.addEventListener("offline", update);
-  // Periodic retry while we have pending writes
-  setInterval(() => { if (state.online && state.pending > 0) drainQueue(); }, 15_000);
+  // Periodic retry while we have pending writes — back off to 60s to avoid traffic pile-up
+  setInterval(() => { if (state.online && state.pending > 0) drainQueue(); }, 60_000);
   // On tab focus — useful after sleep
   window.addEventListener("focus", () => { if (state.online) drainQueue(); });
   // Seed pending count
@@ -64,8 +66,10 @@ async function call<T>(method: string, url: string, body?: unknown, signal?: Abo
     body: body != null ? JSON.stringify(body) : undefined,
     signal,
   });
-  const json = (await res.json()) as ApiResp<T>;
-  if (!json.ok) throw new Error(json.error || `http_${res.status}`);
+  let json: ApiResp<T>;
+  try { json = (await res.json()) as ApiResp<T>; }
+  catch { throw Object.assign(new Error(`http_${res.status}`), { status: res.status }); }
+  if (!json.ok) throw Object.assign(new Error(json.error || `http_${res.status}`), { status: res.status, details: (json as any).details });
   return json.data;
 }
 
@@ -363,14 +367,19 @@ export async function drainQueue() {
   if (typeof navigator !== "undefined" && !navigator.onLine) return;
   draining = true;
   set({ syncing: true });
+  const deadLetters: NonNullable<NetState["deadLetters"]> = [...(state.deadLetters ?? [])];
   try {
     while (true) {
       const [op] = await db.pending.orderBy("created_at").limit(1).toArray();
       if (!op) break;
 
-      // Simple backoff: skip if too many attempts recently
-      if (op.attempts > 10) {
-        // Move to "dead" by pretending it succeeded — user will see it vanish locally if stale
+      // Dead-letter: give up after 5 tries. Drop from queue so we stop hammering.
+      if (op.attempts >= 5) {
+        deadLetters.push({
+          table: op.table, op: op.op,
+          error: op.last_error || "max_attempts_exceeded",
+          at: new Date().toISOString(),
+        });
         await db.pending.delete(op.id!);
         continue;
       }
@@ -379,19 +388,35 @@ export async function drainQueue() {
         await executeOp(op);
         await db.pending.delete(op.id!);
       } catch (e: any) {
+        const status: number | undefined = e?.status;
+        const msg = String(e?.message || e);
+
+        // 4xx = permanent client error (bad payload, not-found, auth). Never retry.
+        if (typeof status === "number" && status >= 400 && status < 500) {
+          deadLetters.push({ table: op.table, op: op.op, error: msg, at: new Date().toISOString() });
+          await db.pending.delete(op.id!);
+          continue;
+        }
+
+        // 5xx / network / parse error: bump attempts and stop this cycle.
+        // The next online/focus/interval tick will retry — no busy loop.
         await db.pending.update(op.id!, {
           attempts: op.attempts + 1,
-          last_error: String(e?.message || e),
+          last_error: msg,
         });
-        // If we keep hitting network errors, bail out of this drain cycle
-        if (String(e?.message || e).match(/fetch|network|load/i)) break;
+        break;
       }
     }
   } finally {
     draining = false;
     const n = await db.pending.count();
-    set({ syncing: false, pending: n });
+    set({ syncing: false, pending: n, deadLetters });
   }
+}
+
+/** Drop all dead-letters (user acknowledged them). */
+export function clearDeadLetters() {
+  set({ deadLetters: [] });
 }
 
 async function executeOp(op: PendingOp) {

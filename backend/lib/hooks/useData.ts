@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   fetchCategories, fetchTransactions, fetchGoals, fetchRules, fetchBudgets,
-  subscribe, initNetwork, drainQueue, type NetState,
+  subscribe, initNetwork, drainQueue, clearDeadLetters, type NetState,
 } from "@/lib/db/client";
 
 /**
@@ -22,6 +22,11 @@ export function useNetStatus(): NetState {
 /** Force-drain the pending-writes queue (e.g. when user taps "retry"). */
 export function useDrainQueue() {
   return useCallback(() => drainQueue(), []);
+}
+
+/** Dismiss dead-letter errors after surfacing them to the user. */
+export function useClearDeadLetters() {
+  return useCallback(() => clearDeadLetters(), []);
 }
 
 /* ============================================================================
