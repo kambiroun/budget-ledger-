@@ -13,7 +13,8 @@ import { ReceiptDrawer } from "@/components/budget/ReceiptDrawer";
 import { ResetWidget } from "@/components/budget/ResetWidget";
 import { useCategories, useTransactions, useGoals, useRules } from "@/lib/hooks/useData";
 import { toLegacyTxns } from "@/lib/budget/adapter";
-import { updateTransaction, deleteTransaction } from "@/lib/db/client";
+import { updateTransaction, deleteTransaction, createTransaction } from "@/lib/db/client";
+import { aiParse } from "@/lib/ai/client";
 
 type TabKey = "dashboard" | "ledger" | "weekly" | "compare" | "rules" | "goals" | "setup";
 
@@ -102,17 +103,28 @@ export function BudgetShell({ userEmail }: { userEmail: string }) {
         setDrawerTxnId(a.txn.id);
         break;
       case "ai-parse":
-        // Call the AI endpoint; fall back to a no-op if the route isn't wired yet
         try {
-          const res = await fetch("/api/ai/parse", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: a.input }),
+          const parsed = await aiParse(a.input);
+          await createTransaction({
+            date: parsed.date,
+            description: parsed.description,
+            amount: parsed.amount,
+            is_income: parsed.is_income,
+            category_id: parsed.category_id,
+            source: "manual",
           });
-          if (res.ok) await txns.refresh();
-          else alert("AI parse isn't available yet.");
-        } catch {
-          alert("AI parse failed.");
+          await txns.refresh();
+        } catch (e: any) {
+          const msg = e?.message ?? "";
+          if (msg === "ai_daily_limit_exceeded") {
+            alert("You\u2019ve hit today\u2019s AI limit. Try again tomorrow.");
+          } else if (msg === "could_not_extract_transaction") {
+            alert("I couldn\u2019t parse that into a transaction \u2014 try something like \u201Ccoffee $5 yesterday.\u201D");
+          } else if (msg === "ai_not_configured") {
+            alert("AI isn\u2019t configured on this deployment (no API key).");
+          } else {
+            alert("AI parse failed: " + msg);
+          }
         }
         break;
     }

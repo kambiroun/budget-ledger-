@@ -6,6 +6,7 @@ import { LedgerEditRow, type EditData } from "@/components/budget/LedgerEditRow"
 import { LedgerSplitModal } from "@/components/budget/LedgerSplitModal";
 import { useCategories, useTransactions } from "@/lib/hooks/useData";
 import { useTxnWrites } from "@/lib/hooks/useWrites";
+import { aiCategorize } from "@/lib/ai/client";
 import { monthLabelShort } from "@/lib/budget";
 
 type FilterMode = "all" | "uncategorized" | "income" | string; // category_id for the rest
@@ -24,6 +25,8 @@ export function LedgerPage() {
   const [search, setSearch] = useState("");
   const [focusIdx, setFocusIdx] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiStatus, setAiStatus] = useState<string | null>(null);
   const [anchor, setAnchor] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<EditData | null>(null);
@@ -71,6 +74,53 @@ export function LedgerPage() {
     () => byMonth.filter((t: any) => !t.category_id && !t.is_income && !t.is_transfer),
     [byMonth]
   );
+
+  /* --------- AI: auto-categorize every uncategorized txn in view --------- */
+  const runAutoCategorize = useCallback(async () => {
+    if (aiBusy) return;
+    // Operate on uncategorized rows in the *current* month view. If the
+    // user narrowed to a category, we still target uncat; they can switch
+    // months to hit others.
+    const targets = uncatList.slice(0, 200); // safety cap
+    if (targets.length === 0) return;
+    setAiBusy(true);
+    setAiStatus(`Categorizing ${targets.length}\u2026`);
+    try {
+      const items = targets.map((t: any) => ({
+        id: t.id,
+        description: t.description,
+        amount: Number(t.amount) || 0,
+        is_income: !!t.is_income,
+      }));
+      const results = await aiCategorize(items);
+      let applied = 0;
+      // Apply only high-confidence matches (>= 0.65). Lower confidence stays
+      // uncategorized so the user can decide.
+      await Promise.all(results.map(async (r) => {
+        if (r.category_id && r.confidence >= 0.65) {
+          await writes.update(r.id, { category_id: r.category_id });
+          applied++;
+        }
+      }));
+      await txns.refresh();
+      setAiStatus(`Categorized ${applied} of ${targets.length}.`);
+      setTimeout(() => setAiStatus(null), 4000);
+    } catch (e: any) {
+      const msg = e?.message ?? "";
+      if (msg === "ai_daily_limit_exceeded") {
+        setAiStatus("Daily AI limit reached. Back tomorrow.");
+      } else if (msg === "ai_not_configured") {
+        setAiStatus("AI not configured on this deployment.");
+      } else if (msg === "no_categories") {
+        setAiStatus("Create some categories first (Setup).");
+      } else {
+        setAiStatus("AI failed: " + msg);
+      }
+      setTimeout(() => setAiStatus(null), 6000);
+    } finally {
+      setAiBusy(false);
+    }
+  }, [aiBusy, uncatList, writes, txns]);
 
   const display = useMemo(() => {
     let list: any[] = [];
@@ -291,10 +341,26 @@ export function LedgerPage() {
           onChange={setMonth}
           monthLabelShort={monthLabelShort}
         />
+        {uncatList.length > 0 && (
+          <Btn small onClick={runAutoCategorize} disabled={aiBusy}>
+            {aiBusy ? "\u2026AI" : `\u2728 AI \u00d7${uncatList.length}`}
+          </Btn>
+        )}
         <Btn small onClick={() => setShowAdd(!showAdd)}>
           {showAdd ? "Cancel" : "+ Row"}
         </Btn>
       </SectionHead>
+
+      {aiStatus && (
+        <div style={{
+          marginTop: -8, marginBottom: 14, padding: "8px 14px",
+          background: "var(--surface-soft)", border: "1px solid var(--rule-soft)",
+          borderRadius: 4, fontFamily: "JetBrains Mono, monospace",
+          fontSize: 12, color: "var(--ink-muted)",
+        }}>
+          {aiStatus}
+        </div>
+      )}
 
       {txList.length === 0 && !txns.loading && (
         <EmptyState>
