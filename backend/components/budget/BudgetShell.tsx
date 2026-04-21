@@ -1,6 +1,7 @@
 "use client";
 import React, { useMemo, useState } from "react";
 import { Masthead, Tabs, SectionHead, EmptyState, TabDef } from "@/components/budget/Primitives";
+import { LedgerPage } from "@/components/budget/LedgerPage";
 import { useCategories, useTransactions, useBudgets, useGoals, useRules } from "@/lib/hooks/useData";
 import { monthKey, monthLabel, fmtMoney } from "@/lib/budget";
 
@@ -53,7 +54,7 @@ export function BudgetShell({ userEmail }: { userEmail: string }) {
       )}
 
       {active === "dashboard" && <DashboardStub txns={txList} cats={cats.data ?? []} budgets={budgets.data ?? []} />}
-      {active === "ledger"    && <LedgerStub    txns={txList} cats={cats.data ?? []} />}
+      {active === "ledger"    && <LedgerPage />}
       {active === "weekly"    && <PlaceholderPanel title="Weekly digest" note="Coming in M4c — week-over-week delta, biggest charges, per-category movement." />}
       {active === "compare"   && <PlaceholderPanel title="Compare periods" note="Coming in M4d — forecast, timeline, month-vs-month, stress-test." />}
       {active === "rules"     && <RulesStub      rules={rules.data ?? []} />}
@@ -127,57 +128,6 @@ function DashboardStub({
           will land as we port the full Dashboard in the next milestone.
         </p>
       </div>
-    </>
-  );
-}
-
-function LedgerStub({ txns, cats }: { txns: any[]; cats: any[] }) {
-  const catById: Record<string, any> = {};
-  cats.forEach(c => (catById[c.id] = c));
-
-  return (
-    <>
-      <SectionHead title="Ledger" meta={`${txns.length} transactions`} />
-      {txns.length === 0 ? (
-        <EmptyState>
-          No transactions yet. Open <b>Setup</b> to import a CSV or load demo data.
-        </EmptyState>
-      ) : (
-        <div className="ledger">
-          {txns.slice(0, 100).map((t: any) => {
-            const c = t.category_id ? catById[t.category_id] : null;
-            return (
-              <div key={t.id} className="ledger-row">
-                <div className="ledger-date">{t.date}</div>
-                <div className="ledger-desc">{t.description}</div>
-                <div>
-                  {c ? (
-                    <span className="pill" style={{ color: c.color || "var(--ink-muted)" }}>
-                      <span className="dot" />
-                      {c.name}
-                    </span>
-                  ) : (
-                    <span className="mono" style={{ fontSize: 10, color: "var(--warn)" }}>
-                      UNCAT
-                    </span>
-                  )}
-                </div>
-                <div className={"ledger-amt" + (t.is_income ? " income" : "")}>
-                  {t.is_income ? "+" : ""}{fmtMoney(Number(t.amount))}
-                </div>
-                <div className="mono" style={{ fontSize: 9, color: "var(--ink-faint)" }}>
-                  {t.source?.toUpperCase()}
-                </div>
-              </div>
-            );
-          })}
-          {txns.length > 100 && (
-            <div style={{ padding: "16px 4px", fontSize: 12, color: "var(--ink-muted)", fontStyle: "italic" }}>
-              {txns.length - 100} more — full ledger with keyboard nav + bulk ops lands in M4b.
-            </div>
-          )}
-        </div>
-      )}
     </>
   );
 }

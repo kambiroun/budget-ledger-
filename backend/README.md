@@ -1,47 +1,48 @@
-# M4a delta — drop these into your `backend/` repo
+# M4b delta — Ledger interactivity
 
-This zip contains **only the files added/changed in milestone M4a**. It slots into the Next.js app you already have.
+Drops the real, editable Ledger into your `backend/` repo.
 
 ## File map
 
 ```
-app/globals.css                        ← REPLACES existing (full editorial stylesheet)
-app/app/page.tsx                        ← REPLACES existing placeholder (renders <BudgetShell/>)
-components/budget/Primitives.tsx        ← NEW
-components/budget/BudgetShell.tsx       ← NEW
-lib/budget/types.ts                     ← NEW
-lib/budget/format.ts                    ← NEW
-lib/budget/defaults.ts                  ← NEW
-lib/budget/parsers.ts                   ← NEW
-lib/budget/txn.ts                       ← NEW
-lib/budget/inbox.ts                     ← NEW
-lib/budget/demo.ts                      ← NEW
-lib/budget/index.ts                     ← NEW (barrel export)
+components/budget/LedgerPage.tsx         ← NEW: full ledger with writes + keyboard + bulk
+components/budget/LedgerRow.tsx          ← NEW: individual row + inline category select
+components/budget/LedgerEditRow.tsx      ← NEW: inline edit mode
+components/budget/LedgerSplitModal.tsx   ← NEW: split-a-transaction modal
+components/budget/BudgetShell.tsx        ← REPLACES: now routes to <LedgerPage /> for the Ledger tab
+lib/hooks/useWrites.ts                   ← NEW: thin hooks around the db/client write API
 ```
 
-## What's in M4a
+## What M4b enables
 
-- Full editorial design system (warm-paper palette, IBM Plex Serif + Mono, dark mode)
-- Typed budget logic library (dedupe, recurring detection, transfers, splits, forecast, anomalies, envelopes, weekly digest, smart inbox, demo-data generator)
-- UI primitives (`Btn`, `Pill`, `Masthead`, `Tabs`, `SectionHead`, `MonthPicker`, `Modal`, `EmptyState`, `Flash`)
-- App shell with all 7 tabs (Dashboard, Ledger, Rules, Goals, Weekly, Compare, Setup) wired to live Supabase data via the React Query hooks from M2
+- ✍️ **Add a row** — manual entry form with date/desc/amount/category/income
+- ✏️ **Edit inline** — `e` or click "edit" on any row
+- 🗑 **Delete** — per-row "×"
+- ⌨️ **Keyboard nav** — `j`/`k`, arrows, `space` to select, `1-9` to assign category, `0` to clear, `e` to edit, `/` to focus search, `esc` to clear selection
+- 🖱 **Multi-select** — shift-click / cmd-click / checkbox; bulk-assign palette appears at top
+- 🔀 **Split** — divide one transaction into multiple rows with different categories; validates the parts sum to the original
+- 🔎 **Search & filter** — description search, plus per-category / uncategorized / income filter pills
+- 📅 **Month picker** — "all months" or any specific month
+- 📊 **Progress bar** — shows categorized-vs-total for the current month
 
-## What's still stubbed (coming in M4b–e)
-
-- Transaction writes (add / edit / delete / split / bulk ops)
-- Keyboard nav, command palette, receipt drawer
-- Weekly digest + Compare full UIs
-- Setup's demo loader + CSV import action
+All writes go through the network-first client (online → server + cache; offline → local + enqueue + replay on reconnect).
 
 ## Install
 
 ```bash
-# from your backend/ repo root
-unzip m4a-delta.zip
-cp -r m4a-delta/* ./
-rm -rf m4a-delta m4a-delta.zip
-
+unzip m4b-delta.zip
+cp -r m4b-delta/* ./
+rm -rf m4b-delta
 npm run dev
 ```
 
-Visit `/app` after signing in.
+Sign in, visit `/app`, open the **Ledger** tab.
+
+## What's next
+
+- **M4c** — Dashboard (forecast, heatmap, anomalies, narrative insights)
+- **M4d** — Weekly digest + Compare periods
+- **M4e** — Rules editor + Goals + Setup (demo loader, CSV import, ⌘K, receipt drawer)
+- **M5**   — Server-side AI endpoints (`/api/ai/categorize`, `/api/ai/parse`)
+- **M6**   — LocalStorage → DB migration
+- **M7**   — Final deploy docs
