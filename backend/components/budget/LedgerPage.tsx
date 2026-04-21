@@ -38,6 +38,23 @@ export function LedgerPage() {
   const [splitId, setSplitId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  // Listen for command-palette filter directives (dispatched by BudgetShell)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const a = (e as CustomEvent<any>).detail;
+      if (!a) return;
+      if (a.kind === "filter-uncategorized") setFilter("uncategorized");
+      else if (a.kind === "filter-category") {
+        const cat = catList.find((c: any) => c.name === a.categoryName);
+        if (cat) setFilter(cat.id);
+      } else if (a.kind === "filter-search") {
+        setSearch(a.query);
+      }
+    };
+    window.addEventListener("budget:ledger-filter", handler as EventListener);
+    return () => window.removeEventListener("budget:ledger-filter", handler as EventListener);
+  }, [catList]);
+
   /* ---------------- derived ---------------- */
   const months = useMemo(() => {
     const s = new Set<string>();
@@ -455,6 +472,9 @@ export function LedgerPage() {
                 setFocusIdx(i);
                 if (e.shiftKey || e.metaKey || e.ctrlKey) {
                   toggleSelect(t.id, i, e.shiftKey);
+                } else if ((e as any).detail === 2) {
+                  // double-click → open receipt drawer (BudgetShell listens)
+                  window.dispatchEvent(new CustomEvent("budget:open-receipt", { detail: { id: t.id } }));
                 }
               }}
               onToggleSelect={() => toggleSelect(t.id, i, false)}

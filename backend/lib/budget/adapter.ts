@@ -13,6 +13,9 @@
 
 import type { Transaction } from "@/lib/budget";
 
+/** Re-export the legacy txn shape so other files can import `LegacyTxn`. */
+export type LegacyTxn = Transaction;
+
 export type SupaTxn = {
   id: string;
   date: string;                     // "YYYY-MM-DD"
