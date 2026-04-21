@@ -3,6 +3,8 @@ import React, { useMemo, useState } from "react";
 import { Masthead, Tabs, SectionHead, EmptyState, TabDef } from "@/components/budget/Primitives";
 import { LedgerPage } from "@/components/budget/LedgerPage";
 import { DashboardPage } from "@/components/budget/DashboardPage";
+import { WeeklyPage } from "@/components/budget/WeeklyPage";
+import { ComparePage } from "@/components/budget/ComparePage";
 import { useCategories, useTransactions, useBudgets, useGoals, useRules } from "@/lib/hooks/useData";
 import { fmtMoney } from "@/lib/budget";
 
@@ -56,8 +58,8 @@ export function BudgetShell({ userEmail }: { userEmail: string }) {
 
       {active === "dashboard" && <DashboardPage />}
       {active === "ledger"    && <LedgerPage />}
-      {active === "weekly"    && <PlaceholderPanel title="Weekly digest" note="Coming in M4c — week-over-week delta, biggest charges, per-category movement." />}
-      {active === "compare"   && <PlaceholderPanel title="Compare periods" note="Coming in M4d — forecast, timeline, month-vs-month, stress-test." />}
+      {active === "weekly"    && <WeeklyPage />}
+      {active === "compare"   && <ComparePage />}
       {active === "rules"     && <RulesStub      rules={rules.data ?? []} />}
       {active === "goals"     && <GoalsStub      goals={goals.data ?? []} />}
       {active === "setup"     && <SetupStub      userEmail={userEmail} />}

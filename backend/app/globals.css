@@ -1575,3 +1575,41 @@ kbd {
   cursor: pointer;
   border-radius: 50%;
 }
+
+
+/* ---- M4d: Weekly / Compare additions ---- */
+.weekly-card {
+  padding: 24px 26px;
+  background: var(--bg-card);
+  border: 1px solid var(--ink);
+  margin-bottom: 24px;
+}
+.weekly-card-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 4px; flex-wrap: wrap; gap: 10px;
+}
+.weekly-metrics {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 20px; margin-top: 16px;
+}
+.weekly-metric-val {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 38px; font-weight: 500; letter-spacing: -0.02em;
+}
+.metric-delta {
+  font-size: 32px; font-weight: 500; letter-spacing: -0.02em;
+  font-family: JetBrains Mono, monospace;
+}
+.metric-sub {
+  font-size: 11px; color: var(--ink-muted);
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.section-sub-h {
+  font-family: Fraunces, Georgia, serif;
+  font-weight: 500; font-size: 18px;
+  margin: 24px 0 10px;
+}
+.stress-impact-arrow {
+  font-size: 24px; color: var(--ink-muted);
+  align-self: center;
+}
