@@ -44,7 +44,7 @@ export function DashboardPage() {
   const income  = monthTxns.filter((t) =>  t.isIncome);
   const totalSpent  = charges.reduce((s, t) => s + t.amount, 0);
   const totalIncome = income.reduce((s, t) => s + t.amount, 0);
-  const totalBudget = Object.values(budgetMap).reduce((s, v) => s + Number(v || 0), 0);
+  const totalBudget = Object.values(budgetMap).reduce<number>((s, v) => s + Number(v || 0), 0);
   const net = totalIncome - totalSpent;
 
   // Category spent map
