@@ -223,8 +223,12 @@ export function parseOfx(text: string, filename: string): RawTable {
 export async function parseXlsx(buffer: ArrayBuffer, filename: string): Promise<RawTable> {
   const warnings: string[] = [];
   let XLSX: any;
-  try { XLSX = await import("xlsx"); }
-  catch {
+  try {
+    // webpackIgnore so bundler doesn't hard-require the module at build time —
+    // we want a runtime try/catch, not a compile-time module-not-found.
+    XLSX = await import(/* webpackIgnore: true */ "xlsx").catch(() => null);
+    if (!XLSX) throw new Error("not installed");
+  } catch {
     return { kind: "xlsx", filename, headers: [], rows: [],
              warnings: ["xlsx package not installed — run: npm i xlsx"] };
   }
@@ -270,8 +274,10 @@ export async function parseXlsx(buffer: ArrayBuffer, filename: string): Promise<
 export async function parsePdf(buffer: ArrayBuffer, filename: string): Promise<RawTable> {
   const warnings: string[] = [];
   let pdfjs: any;
-  try { pdfjs = await import("pdfjs-dist"); }
-  catch {
+  try {
+    pdfjs = await import(/* webpackIgnore: true */ "pdfjs-dist").catch(() => null);
+    if (!pdfjs) throw new Error("not installed");
+  } catch {
     return { kind: "pdf", filename, headers: [], rows: [],
              warnings: ["pdfjs-dist not installed — run: npm i pdfjs-dist"] };
   }
