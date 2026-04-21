@@ -100,6 +100,13 @@ export function parseCSV(text: string): { rows: ParsedRow[]; errors: string[] } 
   if (dateCol < 0) errors.push(`No date column found. Headers: ${headers.join(", ")}`);
   if (descCol < 0) errors.push(`No description/merchant column found. Headers: ${headers.join(", ")}`);
   if (amtCol < 0 && debitCol < 0 && creditCol < 0) errors.push(`No amount column found. Headers: ${headers.join(", ")}`);
+
+  // eslint-disable-next-line no-console
+  console.info(
+    `[ledger] csv: ${lines.length - 1} data rows, delim=${JSON.stringify(delim)}\n` +
+    `  headers:  ${headers.join(" | ")}\n` +
+    `  matched:  date=${dateCol} desc=${descCol} amt=${amtCol} debit=${debitCol} credit=${creditCol}`
+  );
   if (errors.length) return { rows: [], errors };
 
   const rows: ParsedRow[] = [];

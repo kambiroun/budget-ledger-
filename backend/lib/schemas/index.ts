@@ -24,6 +24,7 @@ export const CategoryCreate = z.object({
   id: uuid.optional(),            // client may generate for offline-first
   name: z.string().min(1).max(80),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
+  is_income: z.boolean().optional(),
   sort_order: z.number().int().optional(),
 });
 
@@ -33,6 +34,7 @@ export const Category = z.object({
   ...baseMeta,
   name: z.string(),
   color: z.string().nullable(),
+  is_income: z.boolean(),
   sort_order: z.number().int(),
   created_at: isoTimestamp,
 });

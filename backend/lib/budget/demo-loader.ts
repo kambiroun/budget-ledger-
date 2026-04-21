@@ -21,6 +21,7 @@ const FALLBACK_PALETTE = [
 export async function loadDemoData(
   existingCategories: any[]
 ): Promise<{ catsCreated: number; txnsCreated: number }> {
+  console.info("[ledger] demo: starting (existing cats:", existingCategories.length, ")");
   // 1) Ensure every category from DEFAULT_CATEGORIES + from the demo set exists.
   const nameToId = new Map<string, string>();
   existingCategories.forEach((c: any) => nameToId.set(c.name, c.id));
@@ -83,5 +84,6 @@ export async function loadDemoData(
     txnsCreated += chunk.length;
   }
 
+  console.info(`[ledger] demo: done — ${catsCreated} categories, ${txnsCreated} transactions`);
   return { catsCreated, txnsCreated };
 }

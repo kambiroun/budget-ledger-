@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       user_id: user.id,
       name: body.name,
       color: body.color ?? null,
+      is_income: body.is_income ?? false,
       sort_order: body.sort_order ?? 0,
     };
     const { data, error } = await supabase.from("categories").insert(row).select().single();

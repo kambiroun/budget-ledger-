@@ -60,16 +60,41 @@ export function initNetwork() {
 type ApiResp<T> = { ok: true; data: T } | { ok: false; error: string; details?: unknown };
 
 async function call<T>(method: string, url: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(url, {
-    method,
-    headers: body != null ? { "content-type": "application/json" } : undefined,
-    body: body != null ? JSON.stringify(body) : undefined,
-    signal,
-  });
+  const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: body != null ? { "content-type": "application/json" } : undefined,
+      body: body != null ? JSON.stringify(body) : undefined,
+      signal,
+    });
+  } catch (e: any) {
+    console.warn(`[ledger] NET ${method} ${url} — ${e?.message ?? e}`);
+    throw Object.assign(new Error(e?.message || "network_error"), { status: 0 });
+  }
+
   let json: ApiResp<T>;
   try { json = (await res.json()) as ApiResp<T>; }
-  catch { throw Object.assign(new Error(`http_${res.status}`), { status: res.status }); }
-  if (!json.ok) throw Object.assign(new Error(json.error || `http_${res.status}`), { status: res.status, details: (json as any).details });
+  catch {
+    console.warn(`[ledger] ${res.status} ${method} ${url} — non-JSON response`);
+    throw Object.assign(new Error(`http_${res.status}`), { status: res.status });
+  }
+
+  if (!json.ok) {
+    const dt = Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - t0);
+    // Structured log — copy-paste friendly
+    console.warn(
+      `[ledger] ${res.status} ${method} ${url} (${dt}ms)\n` +
+      `  error:   ${json.error}\n` +
+      (body != null ? `  payload: ${JSON.stringify(body).slice(0, 400)}\n` : "") +
+      ((json as any).details ? `  details: ${JSON.stringify((json as any).details).slice(0, 600)}\n` : "")
+    );
+    throw Object.assign(new Error(json.error || `http_${res.status}`), {
+      status: res.status,
+      details: (json as any).details,
+    });
+  }
   return json.data;
 }
 
@@ -393,6 +418,9 @@ export async function drainQueue() {
 
         // 4xx = permanent client error (bad payload, not-found, auth). Never retry.
         if (typeof status === "number" && status >= 400 && status < 500) {
+          console.warn(
+            `[ledger] sync DROP ${op.op} ${op.table}/${op.row_id} — ${status} ${msg}`
+          );
           deadLetters.push({ table: op.table, op: op.op, error: msg, at: new Date().toISOString() });
           await db.pending.delete(op.id!);
           continue;
@@ -400,6 +428,9 @@ export async function drainQueue() {
 
         // 5xx / network / parse error: bump attempts and stop this cycle.
         // The next online/focus/interval tick will retry — no busy loop.
+        console.warn(
+          `[ledger] sync RETRY ${op.op} ${op.table}/${op.row_id} — attempt ${op.attempts + 1}/5 (${msg})`
+        );
         await db.pending.update(op.id!, {
           attempts: op.attempts + 1,
           last_error: msg,
@@ -419,6 +450,32 @@ export function clearDeadLetters() {
   set({ deadLetters: [] });
 }
 
+/* ============================================================================
+ * Emergency local reset.
+ *
+ * Does NOT touch the server. Clears:
+ *   - every local Dexie table (transactions, categories, budgets, goals, rules)
+ *   - the pending-writes queue (stale ops that keep 500'ing)
+ *   - the dead-letter list
+ *
+ * Use when the sync queue is wedged and you want the app to stop hammering
+ * the API right now. Call wipeUserData("all") afterward if you also want the
+ * server rows gone — or a fresh page load will pull them back down from the
+ * server, which is usually what you want.
+ * ==========================================================================*/
+export async function emergencyLocalReset() {
+  console.warn("[ledger] emergency local reset — clearing all local data + pending queue");
+  await Promise.all([
+    db.transactions.clear(),
+    db.categories.clear(),
+    db.budgets.clear(),
+    db.goals.clear(),
+    db.rules.clear(),
+    db.pending.clear(),
+  ]);
+  set({ pending: 0, syncing: false, deadLetters: [] });
+}
+
 async function executeOp(op: PendingOp) {
   const { table, row_id, op: kind, payload } = op;
   const base = `/api/${table}`;
@@ -432,4 +489,75 @@ async function executeOp(op: PendingOp) {
     // bulk upsert (budgets) — PUT the whole envelope
     await call("PUT", base, payload);
   }
+}
+
+/* ============================================================================
+ * Destructive: wipe user data.
+ *
+ * Blows away BOTH the server (via /api/wipe) and the local IndexedDB mirror
+ * + the pending-writes queue so there's nothing left to re-sync.
+ *
+ * Scopes:
+ *   "all"                       — everything (nuclear)
+ *   "transactions"              — just the ledger
+ *   "categories_and_budgets"    — categories + budgets, unlinks txns first
+ *   "goals" | "rules"           — one table
+ * ==========================================================================*/
+
+export type WipeScope = "all" | "transactions" | "categories_and_budgets" | "goals" | "rules";
+
+export async function wipeUserData(scope: WipeScope): Promise<{
+  deleted: { transactions: number; categories: number; budgets: number; rules: number; goals: number };
+}> {
+  console.warn(`[ledger] wipe: scope=${scope} — destructive op starting`);
+  // 1) Server first — if this fails we haven't wrecked the local cache yet.
+  const resp = await call<{ scope: string; deleted: any }>(
+    "POST", "/api/wipe", { scope, confirm: "WIPE" }
+  );
+
+  // 2) Local mirror: drop matching tables.
+  const clearLocal = async () => {
+    if (scope === "all") {
+      await Promise.all([
+        db.transactions.clear(), db.categories.clear(), db.budgets.clear(),
+        db.rules.clear(), db.goals.clear(), db.pending.clear(),
+      ]);
+    } else if (scope === "transactions") {
+      await db.transactions.clear();
+    } else if (scope === "categories_and_budgets") {
+      await db.budgets.clear();
+      await db.categories.clear();
+      // unlink local txns to match server
+      const txns = await db.transactions.toArray();
+      await db.transactions.bulkPut(txns.map(t => ({ ...t, category_id: null })));
+    } else if (scope === "goals") {
+      await db.goals.clear();
+    } else if (scope === "rules") {
+      await db.rules.clear();
+    }
+
+    // Drop any queued writes targeting the wiped tables — they're stale now.
+    const allPending = await db.pending.toArray();
+    const stillRelevant = allPending.filter(p => {
+      if (scope === "all") return false;
+      if (scope === "transactions") return p.table !== "transactions";
+      if (scope === "categories_and_budgets") return p.table !== "categories" && p.table !== "budgets";
+      if (scope === "goals") return p.table !== "goals";
+      if (scope === "rules") return p.table !== "rules";
+      return true;
+    });
+    const toDrop = allPending.length - stillRelevant.length;
+    if (toDrop > 0) {
+      await db.pending.clear();
+      if (stillRelevant.length) await db.pending.bulkAdd(stillRelevant.map(({ id, ...rest }) => rest as any));
+    }
+  };
+  await clearLocal();
+
+  // 3) Reset dead-letter surface + pending count.
+  const n = await db.pending.count();
+  set({ pending: n, deadLetters: [] });
+
+  console.info(`[ledger] wipe: done`, resp.deleted);
+  return resp as any;
 }

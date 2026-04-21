@@ -11,6 +11,7 @@ import { loadDemoData } from "@/lib/budget/demo-loader";
 import { parseCSV } from "@/lib/budget/csv";
 import { createTransaction } from "@/lib/db/client";
 import { SectionHead, EmptyState, Btn } from "./Primitives";
+import { DangerZone } from "./DangerZone";
 
 const PALETTE = [
   "#c8554b", "#d48a3c", "#c9a94a", "#7a9c5c", "#5a8a8a",
@@ -295,6 +296,8 @@ export function SetupPage({ userEmail }: { userEmail: string }) {
         <a href="/app/try" className="btn">Raw backend tester →</a>
         <a href="/app/offline" className="btn ghost">Offline test →</a>
       </div>
+
+      <DangerZone />
     </div>
   );
 }

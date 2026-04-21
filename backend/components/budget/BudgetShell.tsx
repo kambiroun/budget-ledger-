@@ -10,6 +10,7 @@ import { SetupPage } from "@/components/budget/SetupPage";
 import { ComparePage } from "@/components/budget/ComparePage";
 import { CommandPalette, CmdAction } from "@/components/budget/CommandPalette";
 import { ReceiptDrawer } from "@/components/budget/ReceiptDrawer";
+import { ResetWidget } from "@/components/budget/ResetWidget";
 import { useCategories, useTransactions, useGoals, useRules } from "@/lib/hooks/useData";
 import { toLegacyTxns } from "@/lib/budget/adapter";
 import { updateTransaction, deleteTransaction } from "@/lib/db/client";
@@ -119,6 +120,7 @@ export function BudgetShell({ userEmail }: { userEmail: string }) {
 
   return (
     <div className="app">
+      <ResetWidget />
       <Masthead txCount={txList.length} />
       <Tabs tabs={tabs} active={active} onChange={(k) => setActive(k as TabKey)} />
 
