@@ -64,6 +64,12 @@ function parseDate(s: string, fmt: ColumnMapping["date_format"] = "auto"): strin
     const [_, y, m, d] = iso;
     return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
+  // Compact YYYYMMDD (8 digits, no separators)
+  const compact = /^(\d{4})(\d{2})(\d{2})$/.exec(clean);
+  if (compact) {
+    const [_, y, m, d] = compact;
+    return `${y}-${m}-${d}`;
+  }
   // Slash / dash: 1/2/3 or 01-02-2024
   const slash = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/.exec(clean);
   if (slash) {
