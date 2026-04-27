@@ -70,6 +70,16 @@ function parseDate(s: string, fmt: ColumnMapping["date_format"] = "auto"): strin
     const [_, y, m, d] = compact;
     return `${y}-${m}-${d}`;
   }
+  // "24 Apr. 2026" or "24-Apr-2026" (Amex / Excel named-month formats)
+  const named = /^(\d{1,2})[\s\-]([A-Za-z]{3,9})\.?[\s\-](\d{4})$/.exec(clean);
+  if (named) {
+    const MONTHS: Record<string, string> = {
+      jan:"01",feb:"02",mar:"03",apr:"04",may:"05",jun:"06",
+      jul:"07",aug:"08",sep:"09",oct:"10",nov:"11",dec:"12",
+    };
+    const mm = MONTHS[named[2].toLowerCase().slice(0, 3)];
+    if (mm) return `${named[3]}-${mm}-${named[1].padStart(2, "0")}`;
+  }
   // Slash / dash: 1/2/3 or 01-02-2024
   const slash = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/.exec(clean);
   if (slash) {

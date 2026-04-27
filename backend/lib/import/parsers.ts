@@ -302,8 +302,10 @@ export async function parsePdf(buffer: ArrayBuffer, filename: string): Promise<R
     lines.push(...pageLines);
   }
 
-  // Try to detect "date description amount" shape
-  const txnLine = /(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?|\d{4}-\d{2}-\d{2})\s+(.+?)\s+\(?-?\$?([\d,]+\.\d{2})\)?\s*$/;
+  // Try to detect "date description amount" shape.
+  // Date alternatives: "24 Apr. 2026" | "24-Apr-2026" | MM/DD/YYYY | YYYY-MM-DD
+  // Amount captures optional leading minus so credits like -$468.50 are preserved.
+  const txnLine = /^(\d{1,2}[\s\-][A-Za-z]{3,9}\.?[\s\-]\d{4}|\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?|\d{4}-\d{2}-\d{2})\s+(.+?)\s+(-?\$?[\d,]+\.\d{2})\s*$/;
   const rows: string[][] = [];
   for (const l of lines) {
     const m = l.match(txnLine);
