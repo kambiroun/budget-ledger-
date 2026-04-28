@@ -224,9 +224,7 @@ export async function parseXlsx(buffer: ArrayBuffer, filename: string): Promise<
   const warnings: string[] = [];
   let XLSX: any;
   try {
-    // webpackIgnore so bundler doesn't hard-require the module at build time —
-    // we want a runtime try/catch, not a compile-time module-not-found.
-    XLSX = await import(/* webpackIgnore: true */ "xlsx").catch(() => null);
+    XLSX = await import("xlsx").catch(() => null);
     if (!XLSX) throw new Error("not installed");
   } catch {
     return { kind: "xlsx", filename, headers: [], rows: [],
@@ -275,7 +273,7 @@ export async function parsePdf(buffer: ArrayBuffer, filename: string): Promise<R
   const warnings: string[] = [];
   let pdfjs: any;
   try {
-    pdfjs = await import(/* webpackIgnore: true */ "pdfjs-dist").catch(() => null);
+    pdfjs = await import("pdfjs-dist").catch(() => null);
     if (!pdfjs) throw new Error("not installed");
   } catch {
     return { kind: "pdf", filename, headers: [], rows: [],
