@@ -17,6 +17,7 @@ import { useCategories, useTransactions, useGoals, useRules } from "@/lib/hooks/
 import { toLegacyTxns } from "@/lib/budget/adapter";
 import { updateTransaction, deleteTransaction, createTransaction } from "@/lib/db/client";
 import { aiParse } from "@/lib/ai/client";
+import { track, identifyUser } from "@/lib/analytics";
 
 type TabKey = "dashboard" | "ledger" | "weekly" | "compare" | "rules" | "goals" | "setup";
 
@@ -30,12 +31,37 @@ const TABS: TabDef[] = [
   { key: "setup",     label: "Setup" },
 ];
 
-export function BudgetShell({ userEmail }: { userEmail: string }) {
+export function BudgetShell({ userEmail, userId }: { userEmail: string; userId: string }) {
   const [active, setActive] = useState<TabKey>("dashboard");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerTxnId, setDrawerTxnId] = useState<string | null>(null);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeTier, setUpgradeTier] = useState<"pro" | "plus">("pro");
+
+  // Identify the logged-in user in PostHog once on mount
+  useEffect(() => {
+    identifyUser(userId, userEmail);
+  }, [userId, userEmail]);
+
+  // Track tab navigation
+  useEffect(() => {
+    track("tab_viewed", { tab: active });
+  }, [active]);
+
+  // Detect Stripe checkout success — URL lands at /app?billing=success
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const billing = new URLSearchParams(window.location.search).get("billing");
+    if (billing === "success") {
+      track("checkout_completed", {});
+      window.history.replaceState({}, "", "/app");
+    }
+  }, []);
+
+  // Track paywall opens
+  useEffect(() => {
+    if (upgradeOpen) track("paywall_shown", { required_tier: upgradeTier });
+  }, [upgradeOpen, upgradeTier]);
 
   const cats    = useCategories();
   const txns    = useTransactions({ limit: 500 });
@@ -123,6 +149,7 @@ export function BudgetShell({ userEmail }: { userEmail: string }) {
         break;
       case "ai-parse":
         try {
+          track("ai_used", { feature: "parse" });
           const parsed = await aiParse(a.input);
           await createTransaction({
             date: parsed.date,
@@ -132,6 +159,7 @@ export function BudgetShell({ userEmail }: { userEmail: string }) {
             category_id: parsed.category_id,
             source: "manual",
           });
+          track("transaction_created", { source: "ai_parse" });
           await txns.refresh();
         } catch (e: any) {
           const msg = e?.message ?? "";
