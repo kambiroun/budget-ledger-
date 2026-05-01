@@ -18,7 +18,7 @@ export function AuthForm({ kind }: { kind: "sign-in" | "sign-up" }) {
   }, []);
   const supabase = createClient();
 
-  const [mode, setMode] = useState<Mode>("magic");
+  const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
@@ -92,14 +92,14 @@ export function AuthForm({ kind }: { kind: "sign-in" | "sign-up" }) {
   return (
     <div style={{ width: "100%", maxWidth: 380 }}>
       <div style={{ display: "flex", gap: 6, marginBottom: 22, borderBottom: "1px solid var(--rule)" }}>
-        {(["magic", "password", "google"] as Mode[]).map(m => (
+        {(["password", "google", "magic"] as Mode[]).map(m => (
           <button key={m} onClick={() => setMode(m)} style={{
             ...btnGhost,
             color: mode === m ? "var(--ink)" : "var(--ink-faint)",
             borderBottom: mode === m ? "2px solid var(--ink)" : "2px solid transparent",
             marginBottom: -1,
           }}>
-            {m === "magic" ? "Magic link" : m === "password" ? "Password" : "Google"}
+            {m === "password" ? "Password" : m === "google" ? "Google" : "Magic link"}
           </button>
         ))}
       </div>

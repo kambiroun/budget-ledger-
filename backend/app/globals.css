@@ -95,6 +95,7 @@ html, body {
   max-width: 1100px;
   margin: 0 auto;
   padding: 28px 32px 80px;
+  padding-bottom: max(80px, calc(80px + env(safe-area-inset-bottom)));
 }
 
 /* ---- masthead ---- */
@@ -557,23 +558,76 @@ table.report td.cat { font-family: "Fraunces", Georgia, serif; font-size: 14px; 
 
 /* ---- responsive ---- */
 @media (max-width: 720px) {
-  .app { padding: 20px 16px 80px; }
+  .app { padding: 20px 16px max(140px, calc(140px + env(safe-area-inset-bottom))); }
   .masthead h1 { font-size: 32px; }
   .summary-grid { grid-template-columns: repeat(2, 1fr); }
   .summary-cell:nth-child(2) { border-right: none; }
   .summary-cell:nth-child(1), .summary-cell:nth-child(2) { border-bottom: 1px solid var(--rule); }
   .ledger-row {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr auto auto;
     grid-template-areas:
-      "date amt"
-      "desc amt"
-      "cat cat";
-    gap: 4px;
+      "desc amt actions"
+      "cat  cat actions";
+    gap: 4px 8px;
+    padding: 12px 8px;
+    min-height: 56px;
+    align-items: center;
   }
-  .ledger-date { grid-area: date; }
-  .ledger-desc { grid-area: desc; }
-  .ledger-amt { grid-area: amt; align-self: start;}
+  .ledger-date { display: none; }
+  .ledger-desc {
+    grid-area: desc;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .ledger-amt {
+    grid-area: amt;
+    align-self: start;
+    font-size: 15px;
+  }
   .ledger-cat { grid-area: cat; }
+  .ledger-cat .sel {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 13px;
+    min-height: 36px;
+  }
+  /* Mobile action buttons — bigger tap zone */
+  .ledger-row > div:last-child {
+    grid-area: actions;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0;
+  }
+  .ledger-row > div:last-child button {
+    min-width: 36px;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    padding: 4px 6px;
+  }
+
+  /* Edit row stacks vertically on mobile */
+  .ledger-edit-row {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 12px 8px !important;
+    gap: 8px !important;
+  }
+  .ledger-edit-row input,
+  .ledger-edit-row select {
+    width: 100%;
+    min-height: 44px;
+    font-size: 15px;
+    padding: 10px 12px;
+  }
+  .ledger-edit-row .btn {
+    min-height: 44px;
+    width: 100%;
+  }
 }
 
 /* scrollbar */
@@ -1008,7 +1062,8 @@ kbd {
   border-left: 1px solid var(--ink);
   z-index: 901;
   overflow-y: auto;
-  padding: 20px 24px 32px;
+  padding: max(20px, calc(20px + env(safe-area-inset-top))) 24px max(32px, calc(32px + env(safe-area-inset-bottom)));
+  padding-right: max(24px, calc(24px + env(safe-area-inset-right)));
   box-shadow: -20px 0 60px rgba(0,0,0,0.18);
   animation: slideInR 0.22s cubic-bezier(.2,.8,.2,1);
 }
@@ -1317,6 +1372,8 @@ kbd {
 .cmd-fab {
   position: fixed;
   bottom: 24px; right: 24px;
+  bottom: max(24px, calc(24px + env(safe-area-inset-bottom)));
+  right: max(24px, calc(24px + env(safe-area-inset-right)));
   width: 44px; height: 44px;
   background: var(--ink);
   color: var(--bg-card);
@@ -1333,6 +1390,7 @@ kbd {
   display: flex; align-items: center; justify-content: center;
 }
 .cmd-fab:hover { background: var(--accent); color: #fff; transform: translateY(-2px);}
+@media (max-width: 767px) { .cmd-fab { display: none; } }
 @media (max-width: 560px) { .cmd-fab { bottom: 16px; right: 16px;} }
 
 /* ---- ledger row hint ---- */
@@ -1612,4 +1670,84 @@ kbd {
 .stress-impact-arrow {
   font-size: 24px; color: var(--ink-muted);
   align-self: center;
+}
+
+/* ======================================================
+   MOBILE BOTTOM TAB BAR
+   ====================================================== */
+
+.mobile-tab-bar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mobile-tab-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 600;
+    background: var(--bg-card);
+    border-top: 1px solid var(--rule);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .mobile-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 10px 4px 8px;
+    min-height: 56px;
+    background: none;
+    border: none;
+    color: var(--ink-faint);
+    cursor: pointer;
+    transition: color 0.12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-tab.active {
+    color: var(--ink);
+  }
+
+  .mobile-tab-icon {
+    font-size: 18px;
+    line-height: 1;
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  .mobile-tab-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .mobile-tab-add .mobile-tab-add-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--ink);
+    color: var(--bg);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 300;
+    line-height: 1;
+    transition: background 0.15s;
+  }
+
+  .mobile-tab-add:active .mobile-tab-add-icon {
+    background: var(--accent);
+  }
+
+  /* Hide desktop tabs on mobile */
+  .tabs {
+    display: none;
+  }
 }

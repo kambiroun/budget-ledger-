@@ -22,7 +22,7 @@ export function LedgerEditRow({
 
   return (
     <div
-      className="ledger-row"
+      className="ledger-row ledger-edit-row"
       style={{
         background: "var(--accent-soft)",
         gridTemplateColumns: "110px 1fr 90px 140px auto auto",

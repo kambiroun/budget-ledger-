@@ -12,6 +12,7 @@ import { CommandPalette, CmdAction } from "@/components/budget/CommandPalette";
 import { ReceiptDrawer } from "@/components/budget/ReceiptDrawer";
 import { ResetWidget } from "@/components/budget/ResetWidget";
 import { UpgradeModal } from "@/components/budget/UpgradeModal";
+import { MobileTabBar } from "@/components/budget/MobileTabBar";
 import { useCategories, useTransactions, useGoals, useRules } from "@/lib/hooks/useData";
 import { toLegacyTxns } from "@/lib/budget/adapter";
 import { updateTransaction, deleteTransaction, createTransaction } from "@/lib/db/client";
@@ -157,6 +158,11 @@ export function BudgetShell({ userEmail }: { userEmail: string }) {
       <ResetWidget />
       <Masthead txCount={txList.length} />
       <Tabs tabs={tabs} active={active} onChange={(k) => setActive(k as TabKey)} />
+      <MobileTabBar
+        active={active}
+        onChange={(k) => setActive(k)}
+        onAdd={() => setPaletteOpen(true)}
+      />
 
       {loading && (
         <div className="flash info" style={{ marginBottom: 20 }}>
