@@ -2,6 +2,7 @@
 import React from "react";
 import { fmtMoney, fmtDate } from "@/lib/budget";
 import { merchantHistory } from "@/lib/budget/merchant";
+import { aiExtractImage } from "@/lib/ai/client";
 import type { LegacyTxn } from "@/lib/budget/adapter";
 
 export function ReceiptDrawer({
@@ -15,17 +16,50 @@ export function ReceiptDrawer({
   onCategoryChange: (catId: string | null) => void;
   onDelete: () => void;
 }) {
-  if (!txn) return null;
+  const cameraInputRef = React.useRef<HTMLInputElement>(null);
+  const [scanState, setScanState] = React.useState<"idle" | "scanning" | "done" | "error">("idle");
+  const [scanNote, setScanNote] = React.useState<string | null>(null);
+
+  // Reset scan state when a different transaction is opened
+  React.useEffect(() => {
+    setScanState("idle");
+    setScanNote(null);
+  }, [txn?.id]);
+
+  const handleReceiptScan = React.useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.currentTarget.files?.[0];
+    e.currentTarget.value = "";
+    if (!file) return;
+
+    const mediaType = (file.type === "image/png" || file.type === "image/gif" || file.type === "image/webp")
+      ? file.type as "image/png" | "image/gif" | "image/webp"
+      : "image/jpeg";
+
+    setScanState("scanning");
+    setScanNote(null);
+    try {
+      const b64 = await fileToBase64(file);
+      const result = await aiExtractImage(b64, mediaType);
+      const rowCount = result.rows.length;
+      if (rowCount > 0) {
+        setScanNote(`Scanned ${rowCount} line${rowCount !== 1 ? "s" : ""} from receipt.${result.warnings.length ? " " + result.warnings[0] : ""}`);
+      } else {
+        setScanNote(result.warnings[0] ?? "No transaction rows found in the image.");
+      }
+      setScanState("done");
+    } catch (err: any) {
+      setScanNote(err?.message === "upgrade_required" ? "AI scanning requires a Pro account." : "Scan failed — try a clearer photo.");
+      setScanState("error");
+    }
+  }, []);
 
   const history = React.useMemo(
-    () => merchantHistory(transactions, txn.description),
+    () => txn ? merchantHistory(transactions, txn.description) : null,
     [txn, transactions]
   );
   const catList = categories.filter((c: any) => !c.is_income);
   const colorFor = (name: string) =>
     categories.find((c: any) => c.name === name)?.color ?? "var(--ink-muted)";
-  const catIdByName = (name: string) =>
-    categories.find((c: any) => c.name === name)?.id ?? null;
 
   const recentSix = React.useMemo(() => {
     if (!history) return [];
@@ -44,6 +78,8 @@ export function ReceiptDrawer({
     const pts = vals.map((v, i) => ({ x: i, h: (v - min) / range }));
     return { points: pts, months: history.monthly.slice(-12) };
   }, [history]);
+
+  if (!txn) return null;
 
   const prevAvg =
     history && history.count > 1
@@ -181,6 +217,50 @@ export function ReceiptDrawer({
           </div>
         </section>
 
+        <section className="drawer-section">
+          <h4>Receipt photo</h4>
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            style={{ display: "none" }}
+            onChange={handleReceiptScan}
+          />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <button
+              className="btn"
+              disabled={scanState === "scanning"}
+              onClick={() => cameraInputRef.current?.click()}
+              style={{ minHeight: 44 }}
+            >
+              {scanState === "scanning" ? "Scanning…" : "📷 Scan receipt"}
+            </button>
+            <button
+              className="btn ghost"
+              disabled={scanState === "scanning"}
+              onClick={() => {
+                if (cameraInputRef.current) {
+                  cameraInputRef.current.removeAttribute("capture");
+                  cameraInputRef.current.click();
+                  setTimeout(() => cameraInputRef.current?.setAttribute("capture", "environment"), 500);
+                }
+              }}
+              style={{ minHeight: 44 }}
+            >
+              Upload photo
+            </button>
+          </div>
+          {scanNote && (
+            <p style={{
+              marginTop: 10, fontSize: 13,
+              color: scanState === "error" ? "var(--bad)" : "var(--good)",
+            }}>
+              {scanNote}
+            </p>
+          )}
+        </section>
+
         <div className="drawer-actions">
           <button
             className="btn danger"
@@ -192,4 +272,17 @@ export function ReceiptDrawer({
       </div>
     </>
   );
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Strip the data:image/...;base64, prefix
+      resolve(result.split(",")[1] ?? result);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }

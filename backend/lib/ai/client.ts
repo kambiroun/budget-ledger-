@@ -96,6 +96,26 @@ export async function aiInsights(input: InsightInput): Promise<InsightOutput> {
 }
 
 /* ============================================================================
+ * Extract image (receipt OCR)
+ * ==========================================================================*/
+
+export interface ExtractImageResult {
+  headers: string[];
+  rows: string[][];
+  warnings: string[];
+}
+
+export async function aiExtractImage(
+  imageB64: string,
+  mediaType: "image/png" | "image/jpeg" | "image/gif" | "image/webp"
+): Promise<ExtractImageResult> {
+  return await post<ExtractImageResult>("/api/ai/extract-image", {
+    image_b64: imageB64,
+    media_type: mediaType,
+  });
+}
+
+/* ============================================================================
  * Quota
  * ==========================================================================*/
 
