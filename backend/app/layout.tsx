@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ConnectionBadge } from "@/components/ConnectionBadge";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
+import { CapacitorBridge } from "@/components/CapacitorBridge";
 
 export const metadata: Metadata = {
   title: "Budget Ledger",
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <ServiceWorkerRegister />
+        <CapacitorBridge />
         <ConnectionBadge />
         {children}
       </body>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AuthForm } from "@/components/AuthForm";
 
 export default function SignInPage() {
@@ -16,6 +17,13 @@ export default function SignInPage() {
         Welcome back.
       </p>
       <AuthForm kind="sign-in" />
+      <div style={{
+        marginTop: 32, fontSize: 12, color: "var(--ink-faint)",
+        display: "flex", gap: 16
+      }} className="mono">
+        <Link href="/privacy" style={{ color: "inherit", textDecoration: "none" }}>Privacy</Link>
+        <Link href="/terms" style={{ color: "inherit", textDecoration: "none" }}>Terms</Link>
+      </div>
     </main>
   );
 }

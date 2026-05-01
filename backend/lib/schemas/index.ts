@@ -170,6 +170,7 @@ export const ProfileUpdate = z.object({
   pay_day: z.number().int().min(1).max(28).optional(),
   theme: z.enum(["light", "dark"]).optional(),
   anthropic_byo_key: z.string().startsWith("sk-ant-").max(300).nullable().optional(),
+  push_token: z.string().max(512).nullable().optional(),
 });
 
 /* ============================================================================

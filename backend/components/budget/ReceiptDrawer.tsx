@@ -3,6 +3,7 @@ import React from "react";
 import { fmtMoney, fmtDate } from "@/lib/budget";
 import { merchantHistory } from "@/lib/budget/merchant";
 import { aiExtractImage } from "@/lib/ai/client";
+import { isNative } from "@/lib/native/platform";
 import type { LegacyTxn } from "@/lib/budget/adapter";
 
 export function ReceiptDrawer({
@@ -40,6 +41,28 @@ export function ReceiptDrawer({
     try {
       const b64 = await fileToBase64(file);
       const result = await aiExtractImage(b64, mediaType);
+      const rowCount = result.rows.length;
+      if (rowCount > 0) {
+        setScanNote(`Scanned ${rowCount} line${rowCount !== 1 ? "s" : ""} from receipt.${result.warnings.length ? " " + result.warnings[0] : ""}`);
+      } else {
+        setScanNote(result.warnings[0] ?? "No transaction rows found in the image.");
+      }
+      setScanState("done");
+    } catch (err: any) {
+      setScanNote(err?.message === "upgrade_required" ? "AI scanning requires a Pro account." : "Scan failed — try a clearer photo.");
+      setScanState("error");
+    }
+  }, []);
+
+  const handleNativeCamera = React.useCallback(async (source: "camera" | "library") => {
+    const { capturePhoto, pickPhotoFromLibrary } = await import("@/lib/native/camera");
+    const captured = source === "camera" ? await capturePhoto() : await pickPhotoFromLibrary();
+    if (!captured) return;
+
+    setScanState("scanning");
+    setScanNote(null);
+    try {
+      const result = await aiExtractImage(captured.base64, captured.mimeType);
       const rowCount = result.rows.length;
       if (rowCount > 0) {
         setScanNote(`Scanned ${rowCount} line${rowCount !== 1 ? "s" : ""} from receipt.${result.warnings.length ? " " + result.warnings[0] : ""}`);
@@ -219,28 +242,38 @@ export function ReceiptDrawer({
 
         <section className="drawer-section">
           <h4>Receipt photo</h4>
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            style={{ display: "none" }}
-            onChange={handleReceiptScan}
-          />
+          {!isNative() && (
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: "none" }}
+              onChange={handleReceiptScan}
+            />
+          )}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <button
               className="btn"
               disabled={scanState === "scanning"}
-              onClick={() => cameraInputRef.current?.click()}
+              onClick={() => {
+                if (isNative()) {
+                  handleNativeCamera("camera");
+                } else {
+                  cameraInputRef.current?.click();
+                }
+              }}
               style={{ minHeight: 44 }}
             >
-              {scanState === "scanning" ? "Scanning…" : "📷 Scan receipt"}
+              {scanState === "scanning" ? "Scanning…" : "Scan receipt"}
             </button>
             <button
               className="btn ghost"
               disabled={scanState === "scanning"}
               onClick={() => {
-                if (cameraInputRef.current) {
+                if (isNative()) {
+                  handleNativeCamera("library");
+                } else if (cameraInputRef.current) {
                   cameraInputRef.current.removeAttribute("capture");
                   cameraInputRef.current.click();
                   setTimeout(() => cameraInputRef.current?.setAttribute("capture", "environment"), 500);
