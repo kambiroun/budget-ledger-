@@ -13,8 +13,11 @@ import type {
 } from "./types";
 import {
   detectKind, parseDelimited, parseJSONFile, parseOfx,
-  parseXlsx, parsePdf, parseText,
+  parseXlsx, parseText,
 } from "./parsers";
+// parsePdf is intentionally NOT imported here — pdfjs-dist v4+ requires a
+// worker in browsers and lives in serverExternalPackages. PDF parsing is
+// handled server-side via POST /api/import/parse-pdf.
 import { normalizeRows, heuristicMapping } from "./normalize";
 import { dedupeScan } from "./dedupe";
 
@@ -34,8 +37,16 @@ export async function parseFile(file: File): Promise<RawTable> {
     }
   }
   if (kind === "pdf") {
-    try { return await parsePdf(await file.arrayBuffer(), file.name); }
-    catch (e: any) {
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/import/parse-pdf", { method: "POST", body: form });
+      const json = await res.json().catch(() => ({}));
+      if (!json?.ok) {
+        throw new Error(json?.error || `http_${res.status}`);
+      }
+      return json.data as RawTable;
+    } catch (e: any) {
       return { kind: "pdf", filename: file.name, headers: [], rows: [],
                warnings: ["pdf parse failed: " + (e?.message || e)] };
     }

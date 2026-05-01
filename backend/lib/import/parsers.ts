@@ -279,10 +279,12 @@ export async function parsePdf(buffer: ArrayBuffer, filename: string): Promise<R
     return { kind: "pdf", filename, headers: [], rows: [],
              warnings: ["pdfjs-dist not installed — run: npm i pdfjs-dist"] };
   }
-  // Disable worker for serverless / simple env
+  // In Node.js (server-side) pdfjs-dist v4+ still respects an empty workerSrc
+  // and falls back to an in-process fake worker.  The `disableWorker` option
+  // was removed in v4, so we no longer pass it; the empty string is enough.
   try { pdfjs.GlobalWorkerOptions.workerSrc = ""; } catch {}
 
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer), disableWorker: true, isEvalSupported: false }).promise;
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer), isEvalSupported: false }).promise;
   const lines: string[] = [];
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p);
