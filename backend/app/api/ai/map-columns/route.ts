@@ -15,6 +15,7 @@ import { z } from "zod";
 import { withAuth, parseJSON } from "@/lib/api";
 import { aiComplete, parseJsonLoose, AIProviderError } from "@/lib/ai/provider";
 import { requireQuota, recordUsage } from "@/lib/ai/quota";
+import { requireTier } from "@/lib/billing";
 
 const Body = z.object({
   headers: z.array(z.string()).min(1).max(100),
@@ -26,6 +27,7 @@ const ROLES = ["date", "description", "amount", "debit", "credit", "category", "
 export async function POST(req: NextRequest) {
   return withAuth(async ({ supabase, user }) => {
     const { headers, rows_sample } = await parseJSON(req, Body);
+    const byoKey = await requireTier(supabase, user.id, "pro");
     await requireQuota(supabase, user.id, 1);
 
     const system = [
@@ -72,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     let ai;
     try {
-      ai = await aiComplete({ system, user: userMsg, json: true, maxTokens: 800 });
+      ai = await aiComplete({ system, user: userMsg, json: true, maxTokens: 800, apiKey: byoKey ?? undefined });
     } catch (e: any) {
       if (e instanceof AIProviderError) {
         throw Object.assign(new Error(e.message), { __apiStatus: e.status === 429 ? 429 : 502 });

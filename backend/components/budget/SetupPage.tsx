@@ -353,7 +353,138 @@ export function SetupPage({ userEmail }: { userEmail: string }) {
         <a href="/app/offline" className="btn ghost">Offline test →</a>
       </div>
 
+      <BillingSection />
+
       <DangerZone />
     </div>
+  );
+}
+
+const TIER_LABEL: Record<string, string> = {
+  free: "Free",
+  pro: "Pro",
+  plus: "Plus",
+  past_due: "Past due",
+  canceled: "Canceled",
+};
+
+function BillingSection() {
+  const [status, setStatus] = React.useState<{
+    subscription_status: string;
+    current_period_end: string | null;
+    has_byo_key: boolean;
+  } | null>(null);
+  const [byoKey, setByoKey] = React.useState("");
+  const [showByo, setShowByo] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    fetch("/api/billing/status")
+      .then((r) => r.json())
+      .then((j) => { if (j?.ok) setStatus(j.data); })
+      .catch(() => {});
+  }, []);
+
+  async function openPortal() {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/billing/portal", { method: "POST" });
+      const json = await res.json().catch(() => ({}));
+      if (json?.data?.url) window.location.href = json.data.url;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveByo() {
+    const key = byoKey.trim();
+    if (!key.startsWith("sk-ant-")) {
+      alert("That doesn't look like an Anthropic API key — should start with sk-ant-");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ anthropic_byo_key: key }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json?.ok) {
+        setStatus((s) => s ? { ...s, has_byo_key: true } : s);
+        setByoKey("");
+        setShowByo(false);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const tier = status?.subscription_status ?? "free";
+  const isPaid = tier === "pro" || tier === "plus";
+  const periodEnd = status?.current_period_end
+    ? new Date(status.current_period_end).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+    : null;
+
+  return (
+    <>
+      <h3 className="section-sub-h" style={{ marginTop: 36 }}>Subscription</h3>
+      <div style={{
+        padding: 18, border: "1px solid var(--rule-soft)",
+        background: "var(--panel-soft, rgba(0,0,0,0.02))",
+        marginBottom: 16,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+          <span style={{
+            fontFamily: '"JetBrains Mono", monospace', fontSize: 11,
+            letterSpacing: "0.15em", textTransform: "uppercase",
+            color: isPaid ? "var(--good)" : "var(--ink-faint)",
+            padding: "3px 8px", border: `1px solid ${isPaid ? "var(--good)" : "var(--rule)"}`,
+          }}>
+            {TIER_LABEL[tier] ?? tier}
+          </span>
+          {periodEnd && (
+            <span style={{ fontSize: 12, color: "var(--ink-muted)" }}>
+              renews {periodEnd}
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {!isPaid && (
+            <a href="/pricing" className="btn primary" style={{ textDecoration: "none" }}>
+              Upgrade →
+            </a>
+          )}
+          {isPaid && (
+            <Btn ghost onClick={openPortal} disabled={busy}>
+              Manage subscription →
+            </Btn>
+          )}
+          <Btn ghost onClick={() => setShowByo((v) => !v)}>
+            {status?.has_byo_key ? "Replace BYO key" : "Use my own Anthropic key"}
+          </Btn>
+        </div>
+
+        {showByo && (
+          <div style={{ marginTop: 14 }}>
+            <p style={{ fontSize: 13, color: "var(--ink-muted)", margin: "0 0 8px" }}>
+              Paste your Anthropic API key to use AI features on the Free tier at your own cost.
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                className="inp"
+                type="password"
+                placeholder="sk-ant-api03-…"
+                value={byoKey}
+                onChange={(e) => setByoKey(e.target.value)}
+                style={{ flex: 1, fontFamily: '"JetBrains Mono", monospace', fontSize: 12 }}
+              />
+              <Btn primary onClick={saveByo} disabled={busy || !byoKey}>Save</Btn>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

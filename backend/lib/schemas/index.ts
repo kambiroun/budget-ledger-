@@ -169,6 +169,7 @@ export const ProfileUpdate = z.object({
   rollover_enabled: z.boolean().optional(),
   pay_day: z.number().int().min(1).max(28).optional(),
   theme: z.enum(["light", "dark"]).optional(),
+  anthropic_byo_key: z.string().startsWith("sk-ant-").max(300).nullable().optional(),
 });
 
 /* ============================================================================

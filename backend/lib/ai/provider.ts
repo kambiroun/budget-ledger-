@@ -22,6 +22,8 @@ export interface AICallInput {
   timeoutMs?: number;
   /** Optional image(s) to attach. Each entry is { media_type, data } (base64). */
   images?: { media_type: "image/png" | "image/jpeg" | "image/gif" | "image/webp"; data: string }[];
+  /** BYO Anthropic key — overrides ANTHROPIC_API_KEY env var. */
+  apiKey?: string;
 }
 
 export interface AICallOutput {
@@ -36,7 +38,7 @@ export class AIProviderError extends Error {
 }
 
 export async function aiComplete(input: AICallInput): Promise<AICallOutput> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = input.apiKey ?? process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new AIProviderError(500, "ai_not_configured");
   }

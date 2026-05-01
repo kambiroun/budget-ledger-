@@ -22,6 +22,7 @@ import { withAuth, parseJSON } from "@/lib/api";
 import { uuid } from "@/lib/schemas";
 import { aiComplete, parseJsonLoose, AIProviderError } from "@/lib/ai/provider";
 import { requireQuota, recordUsage } from "@/lib/ai/quota";
+import { requireTier } from "@/lib/billing";
 
 const Body = z.object({
   items: z.array(z.object({
@@ -103,6 +104,7 @@ export async function POST(req: NextRequest) {
 
     // 2) LLM for misses
     if (misses.length > 0) {
+      const byoKey = await requireTier(supabase, user.id, "pro");
       await requireQuota(supabase, user.id, 1);
 
       const catNames = cats.filter((c: any) => !c.is_income).map((c: any) => c.name);
@@ -116,7 +118,7 @@ export async function POST(req: NextRequest) {
 
       let ai;
       try {
-        ai = await aiComplete({ system, user: userMsg, json: true, maxTokens: 800 });
+        ai = await aiComplete({ system, user: userMsg, json: true, maxTokens: 800, apiKey: byoKey ?? undefined });
       } catch (e: any) {
         if (e instanceof AIProviderError) {
           throw Object.assign(new Error(e.message), { __apiStatus: e.status === 429 ? 429 : 502 });
