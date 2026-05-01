@@ -36,6 +36,7 @@ const config: CapacitorConfig = {
     },
     Camera: {
       // iOS: no extra config needed; permissions declared in Info.plist
+      // Android: permissions declared in AndroidManifest.xml
     },
   },
   ios: {
@@ -47,6 +48,17 @@ const config: CapacitorConfig = {
     allowsLinkPreview: false,
     scrollEnabled: true,
     limitsNavigationsToAppBoundDomains: true,
+  },
+  android: {
+    // Prevent a white flash while the webview loads
+    backgroundColor: "#F5F1E8",
+    // Disable Chrome remote debugging in release builds;
+    // enable in dev by overriding locally (do not commit true)
+    webContentsDebuggingEnabled: false,
+    // Don't allow http:// resources in the https:// webview
+    allowMixedContent: false,
+    // Append a custom UA token so server-side code can distinguish the app
+    appendUserAgent: "BudgetLedger-Android",
   },
 };
 

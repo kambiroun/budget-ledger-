@@ -35,7 +35,10 @@ export async function registerPushNotifications(): Promise<void> {
     }
   });
 
-  // Foreground notification display (iOS only — Android shows automatically)
+  // Fires when a notification arrives while the app is in the foreground.
+  // iOS: display is suppressed unless handled here; Android FCM notification
+  // payloads show in the system tray automatically, but data-only messages
+  // require manual display (handled in Phase 8 with rich push payloads).
   PushNotifications.addListener("pushNotificationReceived", (notification) => {
     console.info("[push] received in foreground:", notification.title);
   });
