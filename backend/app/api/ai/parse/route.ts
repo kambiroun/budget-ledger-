@@ -17,6 +17,7 @@ import { z } from "zod";
 import { withAuth, parseJSON, ApiError } from "@/lib/api";
 import { aiComplete, parseJsonLoose, AIProviderError } from "@/lib/ai/provider";
 import { requireQuota, recordUsage } from "@/lib/ai/quota";
+import { requireTier } from "@/lib/billing";
 
 const Body = z.object({
   text: z.string().min(1).max(500),
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
     const byName: Record<string, string> = {};
     (cats ?? []).forEach((c: any) => { byName[c.name.toLowerCase()] = c.id; });
 
+    const byoKey = await requireTier(supabase, user.id, "pro");
     await requireQuota(supabase, user.id, 1);
 
     const today = new Date().toISOString().slice(0, 10);
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     let ai;
     try {
-      ai = await aiComplete({ system, user: userMsg, json: true, maxTokens: 200 });
+      ai = await aiComplete({ system, user: userMsg, json: true, maxTokens: 200, apiKey: byoKey ?? undefined });
     } catch (e: any) {
       if (e instanceof AIProviderError) {
         throw new ApiError(e.status === 429 ? 429 : 502, e.message);

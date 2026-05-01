@@ -11,6 +11,7 @@ import { ComparePage } from "@/components/budget/ComparePage";
 import { CommandPalette, CmdAction } from "@/components/budget/CommandPalette";
 import { ReceiptDrawer } from "@/components/budget/ReceiptDrawer";
 import { ResetWidget } from "@/components/budget/ResetWidget";
+import { UpgradeModal } from "@/components/budget/UpgradeModal";
 import { useCategories, useTransactions, useGoals, useRules } from "@/lib/hooks/useData";
 import { toLegacyTxns } from "@/lib/budget/adapter";
 import { updateTransaction, deleteTransaction, createTransaction } from "@/lib/db/client";
@@ -32,6 +33,8 @@ export function BudgetShell({ userEmail }: { userEmail: string }) {
   const [active, setActive] = useState<TabKey>("dashboard");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerTxnId, setDrawerTxnId] = useState<string | null>(null);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeTier, setUpgradeTier] = useState<"pro" | "plus">("pro");
 
   const cats    = useCategories();
   const txns    = useTransactions({ limit: 500 });
@@ -131,7 +134,11 @@ export function BudgetShell({ userEmail }: { userEmail: string }) {
           await txns.refresh();
         } catch (e: any) {
           const msg = e?.message ?? "";
-          if (msg === "ai_daily_limit_exceeded") {
+          if (msg === "subscription_required" || e?.status === 402) {
+            const tier = e?.details?.required_tier ?? "pro";
+            setUpgradeTier(tier);
+            setUpgradeOpen(true);
+          } else if (msg === "ai_daily_limit_exceeded") {
             alert("You\u2019ve hit today\u2019s AI limit. Try again tomorrow.");
           } else if (msg === "could_not_extract_transaction") {
             alert("I couldn\u2019t parse that into a transaction \u2014 try something like \u201Ccoffee $5 yesterday.\u201D");
@@ -171,6 +178,12 @@ export function BudgetShell({ userEmail }: { userEmail: string }) {
         categories={catList}
         transactions={legacyTxns}
         onAction={handleCmd}
+      />
+
+      <UpgradeModal
+        open={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        requiredTier={upgradeTier}
       />
 
       <ReceiptDrawer

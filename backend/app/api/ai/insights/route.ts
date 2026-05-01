@@ -20,6 +20,7 @@ import { z } from "zod";
 import { withAuth, parseJSON, ApiError } from "@/lib/api";
 import { aiComplete, parseJsonLoose, AIProviderError } from "@/lib/ai/provider";
 import { requireQuota, recordUsage } from "@/lib/ai/quota";
+import { requireTier } from "@/lib/billing";
 
 const Body = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/),
@@ -38,6 +39,7 @@ const Body = z.object({
 export async function POST(req: NextRequest) {
   return withAuth(async ({ supabase, user }) => {
     const body = await parseJSON(req, Body);
+    const byoKey = await requireTier(supabase, user.id, "pro");
     await requireQuota(supabase, user.id, 1);
 
     const system =
@@ -55,7 +57,7 @@ export async function POST(req: NextRequest) {
     let ai;
     try {
       ai = await aiComplete({
-        system, user: instruction, json: true, maxTokens: 600,
+        system, user: instruction, json: true, maxTokens: 600, apiKey: byoKey ?? undefined,
       });
     } catch (e: any) {
       if (e instanceof AIProviderError) {

@@ -16,6 +16,7 @@ import { z } from "zod";
 import { withAuth, parseJSON } from "@/lib/api";
 import { aiComplete, parseJsonLoose, AIProviderError } from "@/lib/ai/provider";
 import { requireQuota, recordUsage } from "@/lib/ai/quota";
+import { requireTier } from "@/lib/billing";
 
 const Body = z.object({
   image_b64: z.string().min(100).max(8_000_000),
@@ -25,6 +26,7 @@ const Body = z.object({
 export async function POST(req: NextRequest) {
   return withAuth(async ({ supabase, user }) => {
     const { image_b64, media_type } = await parseJSON(req, Body);
+    const byoKey = await requireTier(supabase, user.id, "pro");
     await requireQuota(supabase, user.id, 1);
 
     const system = [
@@ -54,6 +56,7 @@ export async function POST(req: NextRequest) {
       ai = await aiComplete({
         system, user: userMsg, json: true, maxTokens: 2048,
         images: [{ media_type, data: image_b64 }],
+        apiKey: byoKey ?? undefined,
       });
     } catch (e: any) {
       if (e instanceof AIProviderError) {
