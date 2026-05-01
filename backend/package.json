@@ -10,11 +10,14 @@
     "typecheck": "tsc --noEmit",
     "db:migrate": "echo 'Run migrations via Supabase dashboard SQL editor — see DEPLOY.md'",
     "cap:sync": "cap sync",
-    "cap:ios": "cap open ios"
+    "cap:ios": "cap open ios",
+    "cap:android": "cap open android",
+    "cap:android:sync": "cap sync android"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
     "@aparajita/capacitor-biometric-auth": "^9.0.0",
+    "@capacitor/android": "^6.0.0",
     "@capacitor/app": "^6.0.0",
     "@capacitor/browser": "^6.0.0",
     "@capacitor/camera": "^6.0.0",

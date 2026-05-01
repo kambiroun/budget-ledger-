@@ -6,7 +6,8 @@ import { registerPushNotifications } from "@/lib/native/push";
 /**
  * Mounts once at the root layout on native platforms.
  * Handles: deep-link auth callbacks, StatusBar styling,
- * biometric lock on app resume, and push notification setup.
+ * biometric lock on app resume, push notification setup,
+ * and Android back button.
  */
 export function CapacitorBridge() {
   useEffect(() => {
@@ -15,9 +16,15 @@ export function CapacitorBridge() {
     let cleanup: (() => void) | undefined;
 
     (async () => {
+      const platform = Capacitor.getPlatform();
+
       // ── StatusBar ──────────────────────────────────────────────────────────
       const { StatusBar, Style } = await import("@capacitor/status-bar");
       await StatusBar.setStyle({ style: Style.Dark });
+      // Android requires an explicit background color; iOS reads it from config
+      if (platform === "android") {
+        await StatusBar.setBackgroundColor({ color: "#F5F1E8" });
+      }
 
       // ── Deep links (magic-link auth callback) ─────────────────────────────
       const { App } = await import("@capacitor/app");
@@ -30,10 +37,16 @@ export function CapacitorBridge() {
 
       const appUrlHandle = await App.addListener("appUrlOpen", async (event) => {
         const url = event.url;
-        // budgetledger://auth/callback?code=...&next=...
+        // Handles both:
+        //  • budgetledger://auth/callback  (iOS URL scheme + Android intent filter)
+        //  • https://budget-ledger.vercel.app/auth/callback  (Android App Links)
         if (!url.includes("auth/callback") && !url.includes("access_token")) return;
 
-        const parsed = new URL(url.replace("budgetledger://", "https://placeholder.local/"));
+        const parsed = new URL(
+          url.startsWith("budgetledger://")
+            ? url.replace("budgetledger://", "https://placeholder.local/")
+            : url
+        );
         const code = parsed.searchParams.get("code");
         const accessToken = parsed.hash
           ? new URLSearchParams(parsed.hash.slice(1)).get("access_token")
@@ -68,12 +81,48 @@ export function CapacitorBridge() {
         if (appState === "background" && biometricAvailable && Date.now() - backgroundedAt > 15_000) {
           const result = await authenticateWithBiometrics("Confirm it's you");
           if (!result.success && result.reason !== "unavailable") {
-            // On cancellation or failure, keep the app locked (show sign-in)
             window.location.href = "/sign-in";
           }
         }
         appState = "active";
       });
+
+      // ── Android back button ────────────────────────────────────────────────
+      // Press once: show "press again to exit" toast. Press twice within 2s: exit.
+      let backHandle: { remove: () => void } | undefined;
+      if (platform === "android") {
+        let lastBackPress = 0;
+
+        backHandle = await App.addListener("backButton", () => {
+          const now = Date.now();
+          if (now - lastBackPress < 2000) {
+            App.exitApp();
+            return;
+          }
+          lastBackPress = now;
+
+          // Minimal DOM toast — avoids an extra plugin dependency
+          const toast = document.createElement("div");
+          toast.textContent = "Press back again to exit";
+          toast.style.cssText = [
+            "position:fixed",
+            "bottom:calc(80px + env(safe-area-inset-bottom))",
+            "left:50%",
+            "transform:translateX(-50%)",
+            "background:rgba(0,0,0,0.75)",
+            "color:#fff",
+            "padding:10px 22px",
+            "border-radius:4px",
+            "font-size:14px",
+            "font-family:'JetBrains Mono',monospace",
+            "z-index:9999",
+            "pointer-events:none",
+            "white-space:nowrap",
+          ].join(";");
+          document.body.appendChild(toast);
+          setTimeout(() => toast.remove(), 2000);
+        });
+      }
 
       // ── Push notifications ─────────────────────────────────────────────────
       await registerPushNotifications();
@@ -81,6 +130,7 @@ export function CapacitorBridge() {
       cleanup = () => {
         appUrlHandle.remove();
         stateHandle.remove();
+        backHandle?.remove();
       };
     })();
 
