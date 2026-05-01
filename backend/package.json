@@ -8,10 +8,22 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "db:migrate": "echo 'Run migrations via Supabase dashboard SQL editor — see DEPLOY.md'"
+    "db:migrate": "echo 'Run migrations via Supabase dashboard SQL editor — see DEPLOY.md'",
+    "cap:sync": "cap sync",
+    "cap:ios": "cap open ios"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
+    "@capacitor/app": "^6.0.0",
+    "@capacitor/camera": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/ios": "^6.0.0",
+    "@capacitor/keyboard": "^6.0.0",
+    "@capacitor/preferences": "^6.0.0",
+    "@capacitor/push-notifications": "^6.0.0",
+    "@capacitor/splash-screen": "^6.0.0",
+    "@capacitor/status-bar": "^6.0.0",
+    "@capacitor-community/biometric-auth": "^7.0.0",
     "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.45.0",
     "dexie": "^4.0.8",
@@ -25,6 +37,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@capacitor/cli": "^6.0.0",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

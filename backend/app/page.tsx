@@ -46,6 +46,13 @@ export default function HomePage() {
           Sign in
         </Link>
       </div>
+      <div style={{
+        marginTop: 48, fontSize: 12, color: "var(--ink-faint)",
+        display: "flex", gap: 16
+      }} className="mono">
+        <Link href="/privacy" style={{ color: "inherit", textDecoration: "none" }}>Privacy</Link>
+        <Link href="/terms" style={{ color: "inherit", textDecoration: "none" }}>Terms</Link>
+      </div>
     </main>
   );
 }
