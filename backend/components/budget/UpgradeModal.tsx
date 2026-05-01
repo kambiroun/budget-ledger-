@@ -1,5 +1,7 @@
 "use client";
 import React, { useEffect } from "react";
+import { track } from "@/lib/analytics";
+import { isNative } from "@/lib/native/platform";
 
 interface UpgradeModalProps {
   open: boolean;
@@ -18,6 +20,7 @@ export function UpgradeModal({ open, onClose, requiredTier = "pro" }: UpgradeMod
   if (!open) return null;
 
   async function upgrade(interval: "month" | "year") {
+    track("checkout_started", { tier: requiredTier, interval });
     const res = await fetch("/api/billing/checkout", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -25,7 +28,14 @@ export function UpgradeModal({ open, onClose, requiredTier = "pro" }: UpgradeMod
     });
     const json = await res.json().catch(() => ({}));
     if (json?.data?.url) {
-      window.location.href = json.data.url;
+      // On native iOS, open in Safari — Stripe checkout inside WKWebView
+      // violates Apple's IAP guidelines.
+      if (isNative()) {
+        const { Browser } = await import("@capacitor/browser");
+        await Browser.open({ url: json.data.url });
+      } else {
+        window.location.href = json.data.url;
+      }
     } else if (res.status === 401) {
       window.location.href = "/sign-in";
     }

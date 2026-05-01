@@ -1,4 +1,6 @@
 "use client";
+import { track } from "@/lib/analytics";
+import { isNative } from "@/lib/native/platform";
 
 export function UpgradeButton({
   tier,
@@ -27,6 +29,7 @@ export function UpgradeButton({
   }
 
   async function handleClick() {
+    track("checkout_started", { tier, interval: "month" });
     const res = await fetch("/api/billing/checkout", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -34,7 +37,12 @@ export function UpgradeButton({
     });
     const json = await res.json().catch(() => ({}));
     if (json?.data?.url) {
-      window.location.href = json.data.url;
+      if (isNative()) {
+        const { Browser } = await import("@capacitor/browser");
+        await Browser.open({ url: json.data.url });
+      } else {
+        window.location.href = json.data.url;
+      }
     } else if (res.status === 401) {
       window.location.href = `/sign-up?redirect=/pricing`;
     }

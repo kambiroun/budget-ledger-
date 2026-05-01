@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { track } from "@/lib/analytics";
 
 type Mode = "magic" | "password" | "google";
 
@@ -37,7 +38,10 @@ export function AuthForm({ kind }: { kind: "sign-in" | "sign-up" }) {
     });
     setLoading(false);
     if (error) setErr(error.message);
-    else setMsg("Check your email for a one-time link.");
+    else {
+      track(kind === "sign-up" ? "signed_up" : "signed_in", { method: "magic" });
+      setMsg("Check your email for a one-time link.");
+    }
   }
 
   async function handlePassword(e: React.FormEvent) {
@@ -50,17 +54,24 @@ export function AuthForm({ kind }: { kind: "sign-in" | "sign-up" }) {
       });
       setLoading(false);
       if (error) setErr(error.message);
-      else setMsg("Check your email to confirm your account.");
+      else {
+        track("signed_up", { method: "password" });
+        setMsg("Check your email to confirm your account.");
+      }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       setLoading(false);
       if (error) setErr(error.message);
-      else router.push(next);
+      else {
+        track("signed_in", { method: "password" });
+        router.push(next);
+      }
     }
   }
 
   async function handleGoogle() {
     setErr(null); setLoading(true);
+    track(kind === "sign-up" ? "signed_up" : "signed_in", { method: "google" });
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {

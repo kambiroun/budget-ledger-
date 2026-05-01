@@ -7,5 +7,5 @@ export default async function AppHome() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/sign-in");
 
-  return <BudgetShell userEmail={user.email || ""} />;
+  return <BudgetShell userEmail={user.email || ""} userId={user.id} />;
 }

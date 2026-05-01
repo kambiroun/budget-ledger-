@@ -185,6 +185,40 @@ The importer:
 
 ---
 
+## Phase 4 — Analytics + Crash Reporting (optional but recommended)
+
+### PostHog (product analytics)
+
+1. Sign up at [posthog.com](https://posthog.com) — free up to 1M events/month
+2. Create a project, copy the **Project API key** and **Host** (e.g. `https://us.i.posthog.com`)
+3. Add to Vercel environment variables:
+   ```
+   NEXT_PUBLIC_POSTHOG_KEY=phc_...
+   NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+   ```
+4. Events tracked automatically: `signed_up`, `signed_in`, `tab_viewed`, `paywall_shown`,
+   `checkout_started`, `checkout_completed`, `ai_used`, `transaction_created`, `$pageview`
+
+### Sentry (crash reporting)
+
+1. Sign up at [sentry.io](https://sentry.io) — free tier includes 5K errors/month
+2. Create a **Next.js** project
+3. Copy the **DSN** (looks like `https://abc123@o0.ingest.sentry.io/456`)
+4. Add to Vercel environment variables:
+   ```
+   NEXT_PUBLIC_SENTRY_DSN=https://...@sentry.io/...
+   ```
+5. Optional — to upload source maps for better stack traces (add to Vercel build env):
+   ```
+   SENTRY_AUTH_TOKEN=sntrys_...
+   SENTRY_ORG=your-org-slug
+   SENTRY_PROJECT=your-project-slug
+   ```
+
+Both integrations are no-ops if the env vars are absent — the app works fine without them.
+
+---
+
 ## What ships
 
 All milestones landed:
