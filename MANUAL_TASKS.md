@@ -34,7 +34,10 @@ Add these in **Vercel → Project → Settings → Environment Variables** (Prod
 | `PLAID_CLIENT_ID` | dashboard.plaid.com → Team Settings → Keys | Plaid bank sync |
 | `PLAID_SECRET` | dashboard.plaid.com → Team Settings → Keys (Sandbox secret) | Plaid bank sync |
 | `PLAID_ENV` | `sandbox` for testing, `production` when live | Plaid bank sync |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firebase → Project Settings → Service accounts | Phase 8 push |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firebase → Project Settings → Service accounts → Generate new private key | Phase 8 push |
+| `RESEND_API_KEY` | resend.com → API Keys → Create API Key | Phase 8 email |
+| `RESEND_FROM_EMAIL` | `Budget Ledger <noreply@yourdomain.com>` | Phase 8 email (optional) |
+| `CRON_SECRET` | Any random string (`openssl rand -hex 32`) | Phase 8 cron security |
 
 ---
 
@@ -1107,6 +1110,163 @@ Once Plaid approves Production access:
 
 ---
 
+## Section 8 — Push notifications, email digests, and retention loops
+
+**Estimated time: 30 minutes**
+**Must be done before: budget overage push alerts work, weekly digest emails send**
+
+### 8.1 What Phase 8 added
+
+- **Budget overage push** — when a manually-entered transaction pushes a category over its monthly budget for the first time, the user gets a push notification (iOS/Android only, requires Firebase).
+- **Weekly spending digest** — every Monday at 09:00 UTC, users with `notif_weekly_digest = true` receive an email with last week's spending by category, compared against their budgets.
+- **Notification preferences** — two toggles in Setup → Notifications let users opt in/out per channel.
+
+---
+
+### 8.2 Run the notifications migration
+
+Open [Supabase Dashboard](https://supabase.com/dashboard) → your project → **SQL Editor** → **New query**. Paste:
+
+```sql
+alter table public.profiles
+  add column if not exists notif_budget_overage boolean not null default true,
+  add column if not exists notif_weekly_digest  boolean not null default true;
+```
+
+Click **Run**. Verify the columns appear in Table Editor → `profiles`.
+
+---
+
+### 8.3 Firebase setup (for iOS/Android push notifications)
+
+Push notifications require a Firebase project. This is the same Firebase project you set up in Section 4.3 (Android FCM) — you just need to generate a server-side service account key.
+
+1. Go to [Firebase Console](https://console.firebase.google.com) → your "Budget Ledger" project
+2. Click the gear icon → **Project settings** → **Service accounts** tab
+3. Under **Firebase Admin SDK**, ensure **Node.js** is selected
+4. Click **Generate new private key**
+5. Download the JSON file (e.g. `budget-ledger-firebase-adminsdk.json`)
+6. **Never commit this file.** Add it to `.gitignore` if you haven't already.
+7. Open the file — it looks like:
+   ```json
+   {
+     "type": "service_account",
+     "project_id": "budget-ledger-xxxxx",
+     "private_key_id": "abc123",
+     "private_key": "-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----\n",
+     "client_email": "firebase-adminsdk-xxxxx@budget-ledger-xxxxx.iam.gserviceaccount.com",
+     ...
+   }
+   ```
+8. In Vercel → **Settings → Environment Variables**, add:
+
+| Variable | Value |
+|---|---|
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Paste the **entire JSON file contents** as a single line (minify it first) |
+
+   To minify the JSON: open the file in a text editor and remove all newlines, OR run:
+   ```bash
+   node -e "console.log(JSON.stringify(require('./budget-ledger-firebase-adminsdk.json')))"
+   ```
+
+9. Redeploy on Vercel.
+
+> **iOS APNs**: iOS push requires an APNs key uploaded to Firebase. Go to Firebase → Project settings → **Cloud Messaging** → **Apple app configuration** → upload your APNs key. See `backend/CAPACITOR_SETUP.md` for how to generate the APNs key in Apple Developer.
+
+---
+
+### 8.4 Test a budget overage push
+
+1. On your iOS or Android device, open the app and grant notification permission (it will prompt automatically on first launch)
+2. In Setup → Spending categories, ensure at least one category has a budget set (e.g. Food = $100)
+3. Manually add a transaction that brings that category's total spending over the budget
+4. You should receive a push notification: "Budget exceeded — You've spent $X in Food (budget: $Y)"
+
+**If no notification arrives:**
+- Check Vercel logs for `[fcm]` errors
+- Confirm `FIREBASE_SERVICE_ACCOUNT_JSON` is set and properly escaped
+- Confirm the device granted notification permission
+- Confirm the app ran at least once after Phase 8 deploy (so the push token is saved)
+
+---
+
+### 8.5 Resend setup (for weekly digest emails)
+
+1. Sign up at [resend.com](https://resend.com) — free tier: 3,000 emails/month, 100/day
+2. In Resend → **API Keys** → **Create API Key**
+   - Name: "Budget Ledger production"
+   - Permission: **Sending access** (full access)
+   - Copy the `re_...` key
+3. **Verify a sending domain** (optional but recommended for deliverability):
+   - Resend → **Domains** → **Add domain**
+   - Enter your domain (e.g. `budgetledger.app`)
+   - Add the DNS records Resend shows you (DKIM, SPF, DMARC)
+   - Or use Resend's onboarding domain (`onboarding@resend.dev`) for early testing
+4. Add to Vercel environment variables:
+
+| Variable | Value |
+|---|---|
+| `RESEND_API_KEY` | `re_...` API key from step 2 |
+| `RESEND_FROM_EMAIL` | `Budget Ledger <noreply@yourdomain.com>` (or leave unset to use default) |
+| `CRON_SECRET` | Any random string (e.g. `openssl rand -hex 32`) — secures the cron endpoint |
+
+5. Redeploy on Vercel.
+
+---
+
+### 8.6 Vercel Cron configuration
+
+The weekly digest is triggered by a Vercel Cron Job defined in `backend/vercel.json`:
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/weekly-digest",
+      "schedule": "0 9 * * 1"
+    }
+  ]
+}
+```
+
+This runs every Monday at 09:00 UTC.
+
+**Requirements:**
+- Cron Jobs require **Vercel Pro** or higher. On the Hobby plan, crons are not supported.
+- Verify in Vercel Dashboard → your project → **Cron Jobs** tab that the job appears after deploying.
+
+**Manual test:**
+```bash
+curl -X POST https://your-vercel-url.vercel.app/api/cron/weekly-digest \
+  -H "Authorization: Bearer YOUR_CRON_SECRET"
+```
+Response: `{"ok":true,"sent":N,"skipped":M,"week":"YYYY-MM-DD"}`
+
+---
+
+### 8.7 Verify the notification preferences UI
+
+1. Open your deployed app → **Setup** → scroll down to **Notifications**
+2. You should see two checkboxes:
+   - "Budget overage alerts" (push, default on)
+   - "Weekly spending digest" (email, default on)
+3. Toggle either one off and confirm the PATCH request to `/api/profile` succeeds (check Network tab)
+
+---
+
+### 8.8 Verification checklist
+
+- [ ] Migration ran — `notif_budget_overage` and `notif_weekly_digest` columns visible in Supabase
+- [ ] `FIREBASE_SERVICE_ACCOUNT_JSON` added to Vercel — no `[fcm]` errors in logs
+- [ ] Budget overage push fires when a category first crosses its monthly budget
+- [ ] `RESEND_API_KEY` and `CRON_SECRET` added to Vercel
+- [ ] Weekly digest cron shows in Vercel → Cron Jobs (Pro plan required)
+- [ ] Manual `curl` to `/api/cron/weekly-digest` returns `{"ok":true,...}`
+- [ ] Notification preferences toggles in Setup work (PATCH /api/profile succeeds)
+- [ ] Opting out of weekly digest skips that user in the cron
+
+---
+
 ## Appendix: Local `.env.local` template
 
 ```bash
@@ -1141,6 +1301,12 @@ PLAID_ENV=sandbox
 NEXT_PUBLIC_POSTHOG_KEY=phc_...
 NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 NEXT_PUBLIC_SENTRY_DSN=https://...@sentry.io/...
+
+# Push notifications + email (optional locally)
+FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"..."}
+RESEND_API_KEY=re_...
+RESEND_FROM_EMAIL=Budget Ledger <noreply@yourdomain.com>
+CRON_SECRET=your_random_secret_here
 ```
 
 ---
