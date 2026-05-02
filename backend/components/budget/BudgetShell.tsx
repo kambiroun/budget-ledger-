@@ -13,11 +13,13 @@ import { ReceiptDrawer } from "@/components/budget/ReceiptDrawer";
 import { ResetWidget } from "@/components/budget/ResetWidget";
 import { UpgradeModal } from "@/components/budget/UpgradeModal";
 import { MobileTabBar } from "@/components/budget/MobileTabBar";
-import { useCategories, useTransactions, useGoals, useRules } from "@/lib/hooks/useData";
+import { useCategories, useTransactions, useGoals, useRules, useBudgets } from "@/lib/hooks/useData";
 import { toLegacyTxns } from "@/lib/budget/adapter";
 import { updateTransaction, deleteTransaction, createTransaction } from "@/lib/db/client";
 import { aiParse } from "@/lib/ai/client";
 import { track, identifyUser } from "@/lib/analytics";
+import { useFeatureFlag } from "@/lib/hooks/useFeatureFlag";
+import { OnboardingChecklist } from "@/components/budget/OnboardingChecklist";
 
 type TabKey = "dashboard" | "ledger" | "weekly" | "compare" | "rules" | "goals" | "setup";
 
@@ -67,10 +69,18 @@ export function BudgetShell({ userEmail, userId }: { userEmail: string; userId: 
   const txns    = useTransactions({ limit: 500 });
   const goals   = useGoals();
   const rules   = useRules();
+  const budgets = useBudgets();
+  const onboardingVariant = useFeatureFlag("onboarding_variant");
 
   const loading = cats.loading || txns.loading;
   const txList  = txns.data?.transactions ?? [];
   const catList = cats.data ?? [];
+  const budgetList = budgets.data ?? [];
+
+  // Checklist state — derived cheaply from already-fetched data
+  const hasTxns        = txList.length > 0;
+  const hasBudgets     = budgetList.some((b: any) => Number(b.amount) > 0);
+  const hasCategorized = txList.some((t: any) => !!t.category_id);
 
   // Legacy txns — used by command palette (search) + drawer (merchant history)
   const legacyTxns = useMemo(
@@ -219,6 +229,14 @@ export function BudgetShell({ userEmail, userId }: { userEmail: string; userId: 
         onClose={() => setUpgradeOpen(false)}
         requiredTier={upgradeTier}
       />
+
+      {onboardingVariant === "B" && (
+        <OnboardingChecklist
+          hasTxns={hasTxns}
+          hasBudgets={hasBudgets}
+          hasCategorized={hasCategorized}
+        />
+      )}
 
       <ReceiptDrawer
         txn={drawerLegacy as any}

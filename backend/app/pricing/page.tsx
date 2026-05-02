@@ -44,12 +44,11 @@ const plans = [
       "Bank sync via Plaid",
       "Up to 4 connected accounts",
       "Auto-import transactions",
-      "Instant balance updates",
+      "Budget overage alerts",
     ],
-    cta: "Coming soon",
+    cta: "Upgrade to Plus",
     ctaHref: null,
-    tier: null,
-    disabled: true,
+    tier: "plus",
   },
 ];
 

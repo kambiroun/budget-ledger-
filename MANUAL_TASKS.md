@@ -38,6 +38,7 @@ Add these in **Vercel → Project → Settings → Environment Variables** (Prod
 | `RESEND_API_KEY` | resend.com → API Keys → Create API Key | Phase 8 email |
 | `RESEND_FROM_EMAIL` | `Budget Ledger <noreply@yourdomain.com>` | Phase 8 email (optional) |
 | `CRON_SECRET` | Any random string (`openssl rand -hex 32`) | Phase 8 cron security |
+| `NEXT_PUBLIC_PH_URL` | `https://www.producthunt.com/posts/budget-ledger` (set on launch day) | Phase 9 PH banner |
 
 ---
 
@@ -1267,6 +1268,152 @@ Response: `{"ok":true,"sent":N,"skipped":M,"week":"YYYY-MM-DD"}`
 
 ---
 
+## Section 9 — Onboarding A/B testing, referrals, and Product Hunt launch
+
+**Estimated time: 30 minutes for setup + 1 day for Product Hunt launch prep**
+**Must be done before: referral links work, A/B test is live, PH launch fires**
+
+### 9.1 What Phase 9 added
+
+- **Referral system** — every user gets a unique 8-character code. Referral link: `/sign-up?ref=CODE`. Stored in sessionStorage when a visitor hits the sign-up page via a referral link; claimed automatically after they create an account. Referral count shown in Setup → Refer a friend.
+- **PostHog A/B testing** — `onboarding_variant` feature flag with variants `"A"` (default, current UX) and `"B"` (floating Getting Started checklist inside the app). Checklist auto-dismisses when all 3 steps are done, tracks `onboarding_step_completed` events.
+- **Product Hunt launch banner** — a dismissable black top bar: "We're live on Product Hunt today! Support us ↗". Active when `NEXT_PUBLIC_PH_URL` env var is set.
+- **Improved landing page** — feature grid, cleaner CTAs, PH badge when launched.
+- **Plus pricing fix** — removed "Coming soon" status; Plus is now a live purchasable tier on `/pricing`.
+- **OG / Twitter Card meta tags** — added to root layout for social sharing.
+
+---
+
+### 9.2 Run the referrals migration
+
+Open [Supabase Dashboard](https://supabase.com/dashboard) → your project → **SQL Editor** → **New query**. Paste:
+
+```sql
+alter table public.profiles
+  add column if not exists referral_code text unique,
+  add column if not exists referred_by   uuid references auth.users(id);
+
+update public.profiles
+set referral_code = substr(replace(id::text, '-', ''), 1, 8)
+where referral_code is null;
+
+create index if not exists profiles_referral_code_idx on public.profiles(referral_code);
+
+create policy "profiles_referral_self_select"
+  on public.profiles
+  for select
+  using (auth.uid() = id);
+```
+
+Click **Run**. Verify `referral_code` and `referred_by` columns appear in `profiles`.
+
+> **Note**: The `profiles_referral_self_select` policy only applies if there isn't already a broader SELECT policy on `profiles`. If you get "policy already exists", that's fine — skip it.
+
+---
+
+### 9.3 Set up PostHog A/B test
+
+1. Sign in to [app.posthog.com](https://app.posthog.com)
+2. Go to **Feature Flags** → **New feature flag**
+3. Configure:
+   - **Key**: `onboarding_variant`
+   - **Type**: Multiple variants
+   - **Variants**:
+     - `A` — 50% rollout (control: current experience)
+     - `B` — 50% rollout (treatment: Getting Started checklist)
+   - **Release condition**: All users (or target new signups only with `"signed_up_at" > [today]`)
+4. Click **Save**
+
+**How the test works:**
+- Users in variant A see the normal app.
+- Users in variant B see a floating "Getting started" checklist in the bottom-right corner of the app. It tracks 3 steps: add a transaction, set a budget, categorize a transaction. Auto-dismisses when all done.
+- PostHog events to watch: `onboarding_step_completed`, `onboarding_checklist_dismissed`
+
+**Measuring success:** In PostHog → **Insights**, compare `checkout_started` rate between users in variant A vs B. A higher rate in B = the checklist improves conversion.
+
+---
+
+### 9.4 Verify the referral flow
+
+1. In your app, go to **Setup** → scroll to **Refer a friend**
+2. Your referral link should appear (e.g. `https://budget-ledger.vercel.app/sign-up?ref=abc12345`)
+3. Open an incognito window and navigate to that link
+4. Confirm: the sign-up page loads normally (no special UI change needed)
+5. Create a new account (or use an existing one that has not been referred)
+6. After logging in, confirm: in Supabase → `profiles`, the new user's `referred_by` column is set to the referrer's ID
+7. Back in the app, Setup → Refer a friend should show "1 friend signed up via your link"
+
+---
+
+### 9.5 Add OG image
+
+The layout now references `/og-image.png` for Open Graph previews. Create this file:
+
+1. Design a 1200×630 px image with:
+   - App name: "Budget Ledger"
+   - Tagline: "A quiet personal finance app"
+   - Your app screenshot or an editorial/clean graphic
+2. Save as `backend/public/og-image.png`
+3. Redeploy — the image will be at `https://your-domain.com/og-image.png`
+
+**Quick test**: paste your URL into [Twitter Card Validator](https://cards-dev.twitter.com/validator) or [OpenGraph.xyz](https://www.opengraph.xyz/) to preview how it looks when shared.
+
+---
+
+### 9.6 Product Hunt launch steps
+
+When you're ready to launch on Product Hunt:
+
+**Pre-launch checklist (day before):**
+- [ ] OG image uploaded (`/public/og-image.png`)
+- [ ] All features working on production
+- [ ] Demo data button working (reviewers will use it)
+- [ ] Pricing page shows all three plans correctly
+- [ ] Sign-up → first transaction flow is smooth
+- [ ] iOS/Android builds submitted (optional but helps PH listing)
+
+**Launch day:**
+
+1. Submit to [producthunt.com](https://producthunt.com) → **Submit** → fill in:
+   - **Name**: Budget Ledger
+   - **Tagline**: A quiet personal finance app. No ads, no algorithms.
+   - **Description**: (use the full description from Section 4.11)
+   - **Website**: `https://budget-ledger.vercel.app`
+   - **Gallery**: screenshots of Ledger, Dashboard, Goals, Receipt scan
+   - **Maker comment**: Write a genuine note about why you built it
+   - **Category**: Finance
+2. Schedule for 12:01 AM PST (posts go live at midnight PT — earlier = more upvotes)
+3. Once the URL is live, copy it (format: `https://www.producthunt.com/posts/budget-ledger`)
+4. Add `NEXT_PUBLIC_PH_URL` to Vercel environment variables:
+
+| Variable | Value |
+|---|---|
+| `NEXT_PUBLIC_PH_URL` | `https://www.producthunt.com/posts/budget-ledger` |
+
+5. Redeploy on Vercel — the launch banner and PH badge will appear.
+
+**Launch day promotion:**
+- [ ] Post on Twitter/Bluesky with your PH link + a screenshot
+- [ ] Post in r/personalfinance, r/SideProject, r/YNAB (check subreddit rules)
+- [ ] Email your existing users: "We're on Product Hunt today — 30 seconds to support us ↗"
+- [ ] Message friends/family to upvote (genuine users, no incentivized upvoting)
+- [ ] Post in Indie Hackers, Hacker News Show HN
+
+---
+
+### 9.7 Verification checklist
+
+- [ ] Migration 0009 ran — `referral_code` and `referred_by` visible in Supabase `profiles`
+- [ ] Setup → Refer a friend shows a referral link with copy button
+- [ ] Visiting `/sign-up?ref=CODE` → sign up → profile has `referred_by` set
+- [ ] PostHog → Feature Flags → `onboarding_variant` is live with A/B split
+- [ ] Users in variant B see the Getting Started checklist in the app
+- [ ] `/pricing` shows Plus as purchasable (no "Coming soon")
+- [ ] OG tags visible in page source: `og:title`, `og:image`, `twitter:card`
+- [ ] Setting `NEXT_PUBLIC_PH_URL` shows the launch banner on the home page
+
+---
+
 ## Appendix: Local `.env.local` template
 
 ```bash
@@ -1307,6 +1454,9 @@ FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"..."}
 RESEND_API_KEY=re_...
 RESEND_FROM_EMAIL=Budget Ledger <noreply@yourdomain.com>
 CRON_SECRET=your_random_secret_here
+
+# Product Hunt launch (set on launch day)
+# NEXT_PUBLIC_PH_URL=https://www.producthunt.com/posts/budget-ledger
 ```
 
 ---
