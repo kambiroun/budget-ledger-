@@ -13,8 +13,12 @@ export function AuthForm({ kind }: { kind: "sign-in" | "sign-up" }) {
   const [next, setNext] = useState("/app");
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const n = new URLSearchParams(window.location.search).get("next");
+      const params = new URLSearchParams(window.location.search);
+      const n = params.get("next");
       if (n) setNext(n);
+      // Persist referral code so ReferralCapture can claim it after login
+      const ref = params.get("ref");
+      if (ref) sessionStorage.setItem("referral_code", ref);
     }
   }, []);
   const supabase = createClient();

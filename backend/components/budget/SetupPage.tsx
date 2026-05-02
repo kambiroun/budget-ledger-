@@ -13,6 +13,7 @@ import { createTransaction } from "@/lib/db/client";
 import { readLegacyJSON, importLegacyDump } from "@/lib/budget/json-import";
 import { SectionHead, EmptyState, Btn } from "./Primitives";
 import { BanksPanel } from "./BanksPanel";
+import { ReferralPanel } from "./ReferralPanel";
 import { DangerZone } from "./DangerZone";
 
 const PALETTE = [
@@ -367,6 +368,15 @@ export function SetupPage({ userEmail }: { userEmail: string }) {
       <BillingSection />
 
       <NotificationsSection />
+
+      <h3 className="section-sub-h" style={{ marginTop: 36 }}>Refer a friend</h3>
+      <p style={{
+        color: "var(--ink-muted)", fontSize: 14,
+        marginTop: -4, marginBottom: 18, maxWidth: 620,
+      }}>
+        Share your referral link. No commissions — just a quiet way to grow the ledger.
+      </p>
+      <ReferralPanel />
 
       <DangerZone />
     </div>
