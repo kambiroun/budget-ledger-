@@ -71,7 +71,7 @@ export const TransactionCreate = z.object({
   is_refund: z.boolean().optional(),
   split_of: uuid.nullable().optional(),
   ai_confidence: z.number().min(0).max(1).nullable().optional(),
-  source: z.enum(["csv", "paste", "manual", "demo", "import"]).optional(),
+  source: z.enum(["csv", "paste", "manual", "demo", "import", "plaid"]).optional(),
   source_file: z.string().max(200).nullable().optional(),
   raw: z.record(z.unknown()).nullable().optional(),
   import_batch_id: uuid.nullable().optional(),
@@ -186,8 +186,37 @@ export const SyncPush = z.object({
   goals: z.array(GoalUpdate.extend({ id: uuid, deleted_at: isoTimestamp.nullable().optional() })).optional(),
 });
 
+/* ============================================================================
+ * Plaid (bank sync)
+ * ==========================================================================*/
+
+export const PlaidAccount = z.object({
+  id: uuid,
+  item_id: uuid,
+  plaid_account_id: z.string(),
+  name: z.string(),
+  official_name: z.string().nullable(),
+  mask: z.string().nullable(),
+  type: z.string().nullable(),
+  subtype: z.string().nullable(),
+  enabled: z.boolean(),
+  created_at: isoTimestamp,
+});
+
+export const PlaidItem = z.object({
+  id: uuid,
+  institution_id: z.string().nullable(),
+  institution_name: z.string().nullable(),
+  last_synced_at: isoTimestamp.nullable(),
+  error_code: z.string().nullable(),
+  created_at: isoTimestamp,
+  accounts: z.array(PlaidAccount).optional(),
+});
+
 export type CategoryT = z.infer<typeof Category>;
 export type BudgetT = z.infer<typeof Budget>;
 export type TransactionT = z.infer<typeof Transaction>;
 export type RuleT = z.infer<typeof Rule>;
 export type GoalT = z.infer<typeof Goal>;
+export type PlaidAccountT = z.infer<typeof PlaidAccount>;
+export type PlaidItemT = z.infer<typeof PlaidItem>;

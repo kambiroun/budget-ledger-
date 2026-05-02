@@ -12,6 +12,7 @@ import { parseCSV } from "@/lib/budget/csv";
 import { createTransaction } from "@/lib/db/client";
 import { readLegacyJSON, importLegacyDump } from "@/lib/budget/json-import";
 import { SectionHead, EmptyState, Btn } from "./Primitives";
+import { BanksPanel } from "./BanksPanel";
 import { DangerZone } from "./DangerZone";
 
 const PALETTE = [
@@ -258,7 +259,17 @@ export function SetupPage({ userEmail }: { userEmail: string }) {
         )}
       </div>
 
-      <h3 className="section-sub-h">Spending categories</h3>
+      <h3 className="section-sub-h" style={{ marginTop: 36 }}>Connected banks</h3>
+      <p style={{
+        color: "var(--ink-muted)", fontSize: 14,
+        marginTop: -4, marginBottom: 18, maxWidth: 620,
+      }}>
+        Link a bank account and transactions sync automatically. Uses Plaid Sandbox
+        — no real credentials required during testing.
+      </p>
+      <BanksPanel />
+
+      <h3 className="section-sub-h" style={{ marginTop: 36 }}>Spending categories</h3>
       <p style={{
         color: "var(--ink-muted)", fontSize: 14,
         marginTop: -4, marginBottom: 18, maxWidth: 620,
