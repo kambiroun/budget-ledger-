@@ -366,8 +366,103 @@ export function SetupPage({ userEmail }: { userEmail: string }) {
 
       <BillingSection />
 
+      <NotificationsSection />
+
       <DangerZone />
     </div>
+  );
+}
+
+function NotificationsSection() {
+  const [budgetAlerts, setBudgetAlerts] = React.useState<boolean | null>(null);
+  const [weeklyDigest, setWeeklyDigest] = React.useState<boolean | null>(null);
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    fetch("/api/profile")
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.ok) {
+          setBudgetAlerts(j.data.notif_budget_overage ?? true);
+          setWeeklyDigest(j.data.notif_weekly_digest ?? true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function toggle(field: "notif_budget_overage" | "notif_weekly_digest", value: boolean) {
+    if (saving) return;
+    if (field === "notif_budget_overage") setBudgetAlerts(value);
+    else setWeeklyDigest(value);
+    setSaving(true);
+    try {
+      await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ [field]: value }),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (budgetAlerts === null) return null;
+
+  return (
+    <>
+      <h3 className="section-sub-h" style={{ marginTop: 36 }}>Notifications</h3>
+      <div style={{
+        padding: 18, border: "1px solid var(--rule-soft)",
+        background: "var(--panel-soft, rgba(0,0,0,0.02))",
+        marginBottom: 16, display: "flex", flexDirection: "column", gap: 14,
+      }}>
+        <NotifRow
+          label="Budget overage alerts"
+          description="Push notification when a category exceeds its monthly budget"
+          checked={budgetAlerts}
+          onChange={(v) => toggle("notif_budget_overage", v)}
+          disabled={saving}
+        />
+        <NotifRow
+          label="Weekly spending digest"
+          description="Email summary every Monday with last week's spending by category"
+          checked={weeklyDigest}
+          onChange={(v) => toggle("notif_weekly_digest", v)}
+          disabled={saving}
+        />
+      </div>
+    </>
+  );
+}
+
+function NotifRow({
+  label, description, checked, onChange, disabled,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled: boolean;
+}) {
+  return (
+    <label style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      gap: 16, cursor: disabled ? "not-allowed" : "pointer",
+    }}>
+      <span>
+        <span style={{ fontSize: 14, color: "var(--ink)" }}>{label}</span>
+        <span style={{ display: "block", fontSize: 12, color: "var(--ink-muted)", marginTop: 2 }}>
+          {description}
+        </span>
+      </span>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        style={{ width: 18, height: 18, accentColor: "var(--ink)", cursor: "inherit", flexShrink: 0 }}
+      />
+    </label>
   );
 }
 

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { withAuth, parseJSON, parseQuery } from "@/lib/api";
 import { TransactionCreate, TransactionListQuery } from "@/lib/schemas";
 import { z } from "zod";
+import { checkBudgetOverage } from "@/lib/push/budget-check";
 
 /** GET /api/transactions?from=&to=&category_id=&q=&limit=&offset= */
 export async function GET(req: NextRequest) {
@@ -80,6 +81,21 @@ export async function POST(req: NextRequest) {
       }
       throw new Error(`${error.message}${(error as any).hint ? " — " + (error as any).hint : ""}`);
     }
+
+    // Fire budget overage check for single manual transactions (non-blocking)
+    if (rows.length === 1 && rows[0].source === "manual") {
+      const inserted = (data ?? [])[0];
+      if (inserted) {
+        checkBudgetOverage({
+          user_id: inserted.user_id,
+          category_id: inserted.category_id ?? null,
+          amount: inserted.amount,
+          is_income: inserted.is_income,
+          date: inserted.date,
+        }).catch(() => {});
+      }
+    }
+
     return data ?? [];
   });
 }

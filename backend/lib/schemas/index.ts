@@ -171,6 +171,8 @@ export const ProfileUpdate = z.object({
   theme: z.enum(["light", "dark"]).optional(),
   anthropic_byo_key: z.string().startsWith("sk-ant-").max(300).nullable().optional(),
   push_token: z.string().max(512).nullable().optional(),
+  notif_budget_overage: z.boolean().optional(),
+  notif_weekly_digest: z.boolean().optional(),
 });
 
 /* ============================================================================
