@@ -3,7 +3,10 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { plaidClient } from "@/lib/plaid/client";
+import { requireTier } from "@/lib/billing";
 import { syncItem } from "@/lib/plaid/sync";
+
+const ITEM_LIMIT = 4; // Plus plan: up to 4 linked institutions
 
 const Body = z.object({
   public_token: z.string().min(1),
@@ -23,6 +26,19 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Bank sync is a Plus-tier feature
+  try {
+    await requireTier(supabase, user.id, "plus");
+  } catch (err: any) {
+    if (err.__apiStatus === 402) {
+      return NextResponse.json(
+        { error: "subscription_required", required_tier: "plus" },
+        { status: 402 }
+      );
+    }
+    throw err;
+  }
+
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
@@ -30,6 +46,19 @@ export async function POST(req: Request) {
 
   const { public_token, institution_id, institution_name, accounts } = parsed.data;
   const admin = createAdminClient();
+
+  // Enforce the per-user item limit
+  const { count } = await admin
+    .from("plaid_items")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
+  if ((count ?? 0) >= ITEM_LIMIT) {
+    return NextResponse.json(
+      { error: "item_limit_reached", limit: ITEM_LIMIT },
+      { status: 402 }
+    );
+  }
 
   try {
     const { data: exchangeData } = await plaidClient.itemPublicTokenExchange({ public_token });
