@@ -18,6 +18,7 @@ const plans = [
     cta: "Get started",
     ctaHref: "/sign-up",
     tier: null,
+    disabled: false,
   },
   {
     name: "Pro",
@@ -34,6 +35,7 @@ const plans = [
     ctaHref: null,
     tier: "pro",
     highlight: true,
+    disabled: false,
   },
   {
     name: "Plus",
@@ -49,6 +51,7 @@ const plans = [
     cta: "Upgrade to Plus",
     ctaHref: null,
     tier: "plus",
+    disabled: false,
   },
 ];
 

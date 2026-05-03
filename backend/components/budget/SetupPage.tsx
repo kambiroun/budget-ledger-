@@ -436,7 +436,7 @@ function NotificationsSection() {
         <NotifRow
           label="Weekly spending digest"
           description="Email summary every Monday with last week's spending by category"
-          checked={weeklyDigest}
+          checked={weeklyDigest ?? false}
           onChange={(v) => toggle("notif_weekly_digest", v)}
           disabled={saving}
         />
